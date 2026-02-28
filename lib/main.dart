@@ -1,6 +1,4 @@
 import 'package:educaton_codial/pages/student/home_page.dart';
-import 'package:educaton_codial/pages/student/main_page.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 void main(){
