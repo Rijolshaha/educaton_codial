@@ -13,7 +13,8 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.blue,
       body: Center(
-        child: Text("VS CODE PUSH"),
+        child: Text("Malumot yana yangilanyabdi
+        "),
       ),
     );
   }
