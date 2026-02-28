@@ -13,7 +13,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.blue,
       body: Center(
-        child: Text("Home page"),
+        child: Text("Student  Page"),
       ),
     );
   }
