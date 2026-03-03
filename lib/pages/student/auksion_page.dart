@@ -10,7 +10,7 @@ class AuksionPage extends StatefulWidget {
 class _AuksionPageState extends State<AuksionPage> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       body: Center(
         child: Text("Auksion page"),
       ),

@@ -1,6 +1,6 @@
 import 'package:educaton_codial/pages/student/auksion_page.dart';
 import 'package:educaton_codial/pages/student/book_page.dart';
-import 'package:educaton_codial/pages/student/home_page.dart';
+import 'package:educaton_codial/pages/student/home_page/home_page.dart';
 import 'package:educaton_codial/pages/student/rating_page.dart';
 import 'package:flutter/material.dart';
 
@@ -15,10 +15,10 @@ class _MainPageState extends State<MainPage> {
 
   int currentIndex = 0;
   List<Widget> list = [
-    HomePage(),
-    RatingPage(),
-    BookPage(),
-    AuksionPage()
+    const HomePage(),
+    const RatingPage(),
+    const BookPage(),
+    const AuksionPage()
   ];
 
   void onTap(int index){
@@ -35,7 +35,7 @@ class _MainPageState extends State<MainPage> {
         currentIndex: currentIndex,
         onTap: onTap,
         type: BottomNavigationBarType.fixed,
-          items: [
+          items: const [
         BottomNavigationBarItem(icon: Icon(Icons.dashboard),label: "Bosh sahifa"),
         BottomNavigationBarItem(icon: Icon(Icons.cloud_upload),label: "Bosh sahifa"),
         BottomNavigationBarItem(icon: Icon(Icons.book),label: "Bosh sahifa"),

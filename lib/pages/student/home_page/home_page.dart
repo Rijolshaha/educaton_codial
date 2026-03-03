@@ -10,11 +10,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: Colors.blue,
-      body: Center(
-        child: Text("Malumot yana yangilanyabdi
-        "),
+      body: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Center(
+          child: Text("Ma'lumot yana yangilanyabdi"),
+        ),
       ),
     );
   }
