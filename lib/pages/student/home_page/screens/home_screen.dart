@@ -1,11 +1,11 @@
 
+import 'package:educaton_codial/pages/student/home_page/widgets/moch_ontap.dart';
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../models/dashboard_model.dart';
 import '../services/api_service.dart';
 import '../widgets/level_card.dart';
 import '../widgets/coins_card.dart';
-import '../widgets/moch_ontap.dart';
 import '../widgets/rank_card.dart';
 import '../widgets/news_banner.dart';
 import '../widgets/stats_grid.dart';
@@ -13,8 +13,6 @@ import '../widgets/coin_opportunities.dart';
 import '../widgets/latest_rewards.dart';
 import '../widgets/my_groups.dart';
 import '../widgets/quick_actions.dart';
-import '';
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -100,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
 
                         // News Banner
-                        NewsBanner(news: data.news),
+                        GestureDetector(onTap: (){Navigator.push(context, MaterialPageRoute(builder: (context)=>MochOntap()));},child: NewsBanner(news: data.news)),
                         const SizedBox(height: 20),
 
                         // Stats Grid
