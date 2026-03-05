@@ -1,3 +1,5 @@
+import 'package:educaton_codial/pages/registration_page.dart';
+import 'package:educaton_codial/pages/student/book_page.dart';
 import 'package:educaton_codial/pages/student/home_page.dart';
 import 'package:educaton_codial/pages/student/main_page.dart';
 import 'package:flutter/cupertino.dart';
@@ -13,7 +15,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: HomePage(),
+      debugShowCheckedModeBanner: false,
+      home: RegistrationPage(),
     );
   }
 }
