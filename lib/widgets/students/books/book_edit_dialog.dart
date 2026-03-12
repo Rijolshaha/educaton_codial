@@ -161,7 +161,7 @@ class _BookEditDialogState extends State<BookEditDialog> {
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: Colors.grey.shade300)),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.primary)),
+                    borderSide: BorderSide(color: AppColors.primary)),
               ),
             ),
             const SizedBox(height: 20),
@@ -216,7 +216,7 @@ class _BookEditDialogState extends State<BookEditDialog> {
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey.shade300)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.primary)),
+          borderSide: BorderSide(color: AppColors.primary)),
     ),
   );
 

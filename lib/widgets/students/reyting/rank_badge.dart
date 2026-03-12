@@ -22,7 +22,7 @@ class RankBadge extends StatelessWidget {
       child: Center(
         child: Text(
           '#$rank',
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textHint,
             fontWeight: FontWeight.w700,
             fontSize: 13,

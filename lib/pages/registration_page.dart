@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
 import 'student/main_page.dart';
+import 'teacher/teacher_main_page.dart';
+import 'admin/admin_main_page.dart';
+import 'owner/owner_main_page.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -31,17 +35,11 @@ class _RegistrationPageState extends State<RegistrationPage>
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
-    _fadeAnim = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOut,
-    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.12),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
   }
 
@@ -53,33 +51,42 @@ class _RegistrationPageState extends State<RegistrationPage>
     super.dispose();
   }
 
-  // ── Login tekshiruv ────────────────────────────────────────────────────────
   Future<void> _onLogin() async {
     setState(() => _errorMessage = null);
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
 
     setState(() => _isLoading = true);
-    // Loading effekti
     await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
 
     final login    = _loginController.text.trim();
     final password = _passwordController.text;
 
+    Widget? destination;
+
     if (login == 'student' && password == '1234') {
-      // ✅ To'g'ri — MainPage ga yo'naltirish
+      destination = const MainPage();
+    } else if (login == 'teacher' && password == '4321') {
+      destination = const TeacherMainPage();
+    } else if (login == 'admin' && password == '4432') {
+      destination = const AdminMainPage();
+    } else if (login == 'owner' && password == '0000') {
+      // ✅ Ega → OwnerMainPage
+      destination = const OwnerMainPage();
+    }
+
+    if (destination != null) {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, animation, __) => const MainPage(),
-          transitionsBuilder: (_, animation, __, child) =>
-              FadeTransition(opacity: animation, child: child),
+          pageBuilder: (_, anim, __) => destination!,
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
           transitionDuration: const Duration(milliseconds: 400),
         ),
       );
     } else {
-      // ❌ Noto'g'ri
       setState(() {
         _isLoading    = false;
         _errorMessage = "Login yoki parol noto'g'ri";
@@ -96,39 +103,25 @@ class _RegistrationPageState extends State<RegistrationPage>
         resizeToAvoidBottomInset: true,
         body: Stack(
           children: [
-            // ── Gradient yuqori fon ──────────────────────────────────
             Positioned(
               top: 0, left: 0, right: 0,
               child: Container(
                 height: MediaQuery.of(context).size.height * 0.44,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [AppColors.primary, AppColors.primaryDeep],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(40),
-                  ),
+                  borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(40)),
                 ),
               ),
             ),
+            Positioned(top: -50, right: -50, child: _Circle(size: 180, opacity: 0.07)),
+            Positioned(top: 70,  right: 20,  child: _Circle(size: 80,  opacity: 0.07)),
+            Positioned(top: 20,  left: -40,  child: _Circle(size: 130, opacity: 0.05)),
 
-            // ── Dekorativ doiralar ───────────────────────────────────
-            Positioned(
-              top: -50, right: -50,
-              child: _Circle(size: 180, opacity: 0.07),
-            ),
-            Positioned(
-              top: 70, right: 20,
-              child: _Circle(size: 80, opacity: 0.07),
-            ),
-            Positioned(
-              top: 20, left: -40,
-              child: _Circle(size: 130, opacity: 0.05),
-            ),
-
-            // ── Asosiy kontent ───────────────────────────────────────
             SafeArea(
               child: FadeTransition(
                 opacity: _fadeAnim,
@@ -140,8 +133,6 @@ class _RegistrationPageState extends State<RegistrationPage>
                     child: Column(
                       children: [
                         const SizedBox(height: 44),
-
-                        // ── Logo ─────────────────────────────────────
                         Container(
                           width: 80, height: 80,
                           decoration: BoxDecoration(
@@ -156,33 +147,24 @@ class _RegistrationPageState extends State<RegistrationPage>
                             ],
                           ),
                           child: const Center(
-                            child: Text('🎓', style: TextStyle(fontSize: 38)),
-                          ),
+                              child: Text('🎓',
+                                  style: TextStyle(fontSize: 38))),
                         ),
                         const SizedBox(height: 18),
-
-                        // ── Sarlavha ─────────────────────────────────
-                        const Text(
-                          'Codial',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                        const Text('Codial',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            )),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Hisobingizga kiring',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 15,
-                          ),
-                        ),
-
+                        const Text('Hisobingizga kiring',
+                            style: TextStyle(
+                                color: Colors.white70, fontSize: 15)),
                         const SizedBox(height: 36),
 
-                        // ── Oq form karta ─────────────────────────────
+                        // Form card
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
@@ -201,8 +183,7 @@ class _RegistrationPageState extends State<RegistrationPage>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-
-                                // ── Xato banner ──────────────────────
+                                // Error banner
                                 AnimatedSize(
                                   duration: const Duration(milliseconds: 250),
                                   curve: Curves.easeOut,
@@ -239,7 +220,6 @@ class _RegistrationPageState extends State<RegistrationPage>
                                       : const SizedBox.shrink(),
                                 ),
 
-                                // ── Login ─────────────────────────────
                                 const _FieldLabel(text: 'Login'),
                                 const SizedBox(height: 8),
                                 _InputField(
@@ -248,13 +228,13 @@ class _RegistrationPageState extends State<RegistrationPage>
                                   prefixIcon: Icons.person_outline_rounded,
                                   onChanged: (_) =>
                                       setState(() => _errorMessage = null),
-                                  validator: (v) => (v == null || v.trim().isEmpty)
+                                  validator: (v) =>
+                                  (v == null || v.trim().isEmpty)
                                       ? 'Login kiritilmadi'
                                       : null,
                                 ),
                                 const SizedBox(height: 20),
 
-                                // ── Parol ─────────────────────────────
                                 const _FieldLabel(text: 'Parol'),
                                 const SizedBox(height: 8),
                                 _InputField(
@@ -272,18 +252,16 @@ class _RegistrationPageState extends State<RegistrationPage>
                                       color: AppColors.textHint,
                                       size: 20,
                                     ),
-                                    onPressed: () => setState(
-                                          () => _obscurePassword = !_obscurePassword,
-                                    ),
+                                    onPressed: () => setState(() =>
+                                    _obscurePassword = !_obscurePassword),
                                   ),
-                                  validator: (v) => (v == null || v.isEmpty)
+                                  validator: (v) =>
+                                  (v == null || v.isEmpty)
                                       ? 'Parol kiritilmadi'
                                       : null,
                                 ),
-
                                 const SizedBox(height: 28),
 
-                                // ── Kirish tugmasi ─────────────────────
                                 SizedBox(
                                   width: double.infinity,
                                   height: 54,
@@ -307,42 +285,41 @@ class _RegistrationPageState extends State<RegistrationPage>
                                         strokeWidth: 2.5,
                                       ),
                                     )
-                                        : const Text(
-                                      'Kirish',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
+                                        : const Text('Kirish',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.3,
+                                        )),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 28),
-
-                        // ── Pastki hint ───────────────────────────────
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              "Hisobingiz yo'qmi? ",
-                              style: TextStyle(
-                                  color: AppColors.textSecond, fontSize: 14),
-                            ),
-                            GestureDetector(
-                              onTap: () {},
-                              child: const Text(
-                                "Bog'laning",
+                            Text("Hisobingiz yo'qmi? ",
                                 style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                                    color: AppColors.textSecond,
+                                    fontSize: 14)),
+                            GestureDetector(
+                              onTap: () async {
+                                final uri = Uri(
+                                    scheme: 'tel', path: '+998998204432');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri,
+                                      mode: LaunchMode.externalApplication);
+                                }
+                              },
+                              child: Text("Bog'laning",
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  )),
                             ),
                           ],
                         ),
@@ -360,46 +337,34 @@ class _RegistrationPageState extends State<RegistrationPage>
   }
 }
 
-// ─── Yordamchi: doira ─────────────────────────────────────────────────────────
-
 class _Circle extends StatelessWidget {
   final double size;
   final double opacity;
   const _Circle({required this.size, required this.opacity});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size, height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withOpacity(opacity),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: Colors.white.withOpacity(opacity),
+    ),
+  );
 }
-
-// ─── Field Label ──────────────────────────────────────────────────────────────
 
 class _FieldLabel extends StatelessWidget {
   final String text;
   const _FieldLabel({required this.text});
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
+  Widget build(BuildContext context) => Text(text,
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w700,
         color: AppColors.textSecond,
         letterSpacing: 0.2,
-      ),
-    );
-  }
+      ));
 }
-
-// ─── Input Field ──────────────────────────────────────────────────────────────
 
 class _InputField extends StatelessWidget {
   final TextEditingController controller;
@@ -430,14 +395,14 @@ class _InputField extends StatelessWidget {
       keyboardType: keyboardType,
       validator: validator,
       onChanged: onChanged,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w600,
         color: AppColors.text,
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(
+        hintStyle: TextStyle(
           color: AppColors.textHint,
           fontSize: 14,
           fontWeight: FontWeight.w400,
@@ -458,15 +423,17 @@ class _InputField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+          borderSide: BorderSide(color: AppColors.primary, width: 1.8),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.red.withOpacity(0.8), width: 1.5),
+          borderSide:
+          BorderSide(color: AppColors.red.withOpacity(0.8), width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.red.withOpacity(0.8), width: 1.8),
+          borderSide:
+          BorderSide(color: AppColors.red.withOpacity(0.8), width: 1.8),
         ),
         errorStyle: TextStyle(
           fontSize: 12,

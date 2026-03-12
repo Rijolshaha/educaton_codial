@@ -1,12 +1,9 @@
 import 'package:educaton_codial/pages/registration_page.dart';
-import 'package:educaton_codial/pages/student/book_page.dart';
-import 'package:educaton_codial/pages/student/home_page.dart';
 import 'package:educaton_codial/pages/student/main_page.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 void main(){
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -16,7 +13,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: RegistrationPage(),
+      home: const RegistrationPage(),
     );
   }
 }

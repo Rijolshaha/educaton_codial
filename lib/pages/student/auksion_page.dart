@@ -10,10 +10,12 @@ class AuctionPage extends StatelessWidget {
   const AuctionPage({super.key});
 
   static final AuctionEvent _event = AuctionEvent(
+    id: 'a1',                              // ← FIX
     title: 'Fevral 2026 Mega Auксioni',
     eventDate: DateTime(2026, 2, 28, 15, 0),
     description: "Fevral oyining eng yirik auксioni. Ajoyib sovg'alar va dasturlash uchun zarur mahsulotlar!",
     location: "CODIAL Ta'lim Markazi, Toshkent",
+    status: AuctionStatus.kutilmoqda,      // ← FIX
     rules: [
       "Auксion har oyning oxirida o'tkaziladi",
       "Faqat yig'ilgan coinlaringiz bilan ishtirok etishingiz mumkin",
