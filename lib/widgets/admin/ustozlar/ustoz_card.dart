@@ -49,12 +49,22 @@ class UstozCard extends StatelessWidget {
                     color: avatarColor.withOpacity(0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: Center(
-                    child: Text(
-                      ustoz.avatarEmoji,
-                      style: const TextStyle(fontSize: 22),
-                    ),
-                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: (ustoz.avatarUrl != null)
+                      ? Image.network(
+                          ustoz.avatarUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Text(ustoz.avatarEmoji,
+                                style: const TextStyle(fontSize: 22)),
+                          ),
+                        )
+                      : Center(
+                          child: Text(
+                            ustoz.avatarEmoji,
+                            style: const TextStyle(fontSize: 22),
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 10),
                 // Name + role

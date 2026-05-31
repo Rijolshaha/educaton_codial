@@ -36,6 +36,23 @@ class OwnerAdmin {
     required this.avatarEmoji,
     required this.isFaol,
   });
+
+  factory OwnerAdmin.fromJson(Map<String, dynamic> json) {
+    final raw = json['isFaol'] ?? json['status'] ?? json['isActive'];
+    bool faol = true;
+    if (raw is bool) faol = raw;
+    if (raw is String) {
+      final s = raw.toLowerCase();
+      faol = !(s == 'nofaol' || s == 'inactive' || s == 'false');
+    }
+    return OwnerAdmin(
+      id: (json['id'] ?? '').toString(),
+      ism: (json['ism'] ?? json['name'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      avatarEmoji: (json['avatarEmoji'] ?? '🧑‍💼').toString(),
+      isFaol: faol,
+    );
+  }
 }
 
 // ─── Owner Model ──────────────────────────────────────────────────────────────
@@ -51,6 +68,9 @@ class OwnerModel {
   final int jamiCoinlar;
   final int adminlar;
   final int kurslar;
+
+  // jami coinlarning haftalik o'sishi (% — manfiy ham bo'lishi mumkin)
+  final int coinGrowthPct;
 
   // charts
   final List<int> haftalikCoinlar;   // 7 ta (Dush→Shan)
@@ -80,6 +100,7 @@ class OwnerModel {
     required this.jamiCoinlar,
     required this.adminlar,
     required this.kurslar,
+    this.coinGrowthPct = 0,
     required this.haftalikCoinlar,
     required this.haftalikLabels,
     required this.guruhCoinlar,
@@ -95,8 +116,51 @@ class OwnerModel {
     required this.oxirgiAdminlar,
   });
 
-  static OwnerModel mock() => OwnerModel(
-    name: 'Shaxriyor',
+  // ── JSON ──────────────────────────────────────────────────────────────────
+  // Kutilayotgan JSON shakli api_config.dart yonidagi izohda / README'da.
+
+  factory OwnerModel.fromJson(Map<String, dynamic> json) {
+    List<int> intList(dynamic v) =>
+        (v as List?)?.map((e) => (e as num).toInt()).toList() ?? const [];
+    List<String> strList(dynamic v) =>
+        (v as List?)?.map((e) => e.toString()).toList() ?? const [];
+    int asInt(dynamic v) => (v is num) ? v.toInt() : int.tryParse('$v') ?? 0;
+
+    final stats = (json['stats'] as Map<String, dynamic>?) ?? json;
+    final hafta = (json['haftalikCoinlar'] as Map<String, dynamic>?) ?? const {};
+    final guruh = (json['guruhCoinlar'] as Map<String, dynamic>?) ?? const {};
+    final davomat = (json['davomat'] as Map<String, dynamic>?) ?? const {};
+    final welcome = (json['welcome'] as Map<String, dynamic>?) ?? const {};
+
+    return OwnerModel(
+      name: (json['name'] ?? '').toString(),
+      avatarEmoji: (json['avatarEmoji'] ?? '👑').toString(),
+      jami0quvchilar: asInt(stats['jamiOquvchilar'] ?? stats['jami0quvchilar']),
+      jamiUstozlar: asInt(stats['jamiUstozlar']),
+      faolGuruhlar: asInt(stats['faolGuruhlar']),
+      jamiCoinlar: asInt(stats['jamiCoinlar']),
+      adminlar: asInt(stats['adminlar']),
+      kurslar: asInt(stats['kurslar']),
+      haftalikCoinlar: intList(hafta['data']),
+      haftalikLabels: strList(hafta['labels']),
+      guruhCoinlar: intList(guruh['data']),
+      guruhLabels: strList(guruh['labels']),
+      davomatData: intList(davomat['data']),
+      davomatLabels: strList(davomat['labels']),
+      ortachaDavomat: asInt(davomat['ortacha'] ?? davomat['ortachaDavomat']),
+      bugunQatnashdi: asInt(davomat['bugunQatnashdi']),
+      welcomeAdminlar: asInt(welcome['adminlar']),
+      welcomeKurslar: asInt(welcome['kurslar']),
+      welcomeOqituvchilar: asInt(welcome['oqituvchilar']),
+      welcomeOquvchilar: asInt(welcome['oquvchilar']),
+      oxirgiAdminlar: ((json['oxirgiAdminlar'] as List?) ?? const [])
+          .map((e) => OwnerAdmin.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  static OwnerModel mock({String? name}) => OwnerModel(
+    name: (name != null && name.isNotEmpty) ? name : 'Ega',
     avatarEmoji: '👑',
 
     jami0quvchilar: 32,
@@ -105,6 +169,7 @@ class OwnerModel {
     jamiCoinlar: 93380,
     adminlar: 4,
     kurslar: 5,
+    coinGrowthPct: 18,
 
     haftalikCoinlar: [1250, 1380, 1320, 1300, 1600, 1280, 1520],
     haftalikLabels: ['Dush', 'Sesh', 'Chor', 'Pay', 'Juma', 'Shan', 'Yak'],

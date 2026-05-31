@@ -1,30 +1,53 @@
+import '../services/config/api_config.dart';
+
 enum AuctionStatus { kutilmoqda, yakunlangan }
 
 class AuctionProduct {
   final String id;
-  final String title;
+  final String title;        // backend `name`
   final String description;
-  final String category;
-  final int startingPrice;
-  final String? imageUrl;
+  final String category;     // backendda yo'q — faqat ko'rsatish uchun
+  final int startingPrice;   // backend `point_cost`
+  final int amount;          // backend `amount` (soni)
+  final String? imageUrl;    // backend `image`
+  final String auctionId;    // backend `auction` (FK)
   final bool isOffline;
 
   AuctionProduct({
     required this.id,
     required this.title,
     required this.description,
-    required this.category,
+    this.category = '',
     required this.startingPrice,
+    this.amount = 1,
     this.imageUrl,
+    this.auctionId = '',
     this.isOffline = true,
   });
+
+  factory AuctionProduct.fromJson(Map<String, dynamic> j) {
+    int asInt(dynamic v) =>
+        v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+    final img = (j['image'] ?? '').toString();
+    return AuctionProduct(
+      id: '${j['id'] ?? ''}',
+      title: (j['name'] ?? '').toString(),
+      description: (j['description'] ?? '').toString(),
+      startingPrice: asInt(j['point_cost']),
+      amount: asInt(j['amount']),
+      imageUrl: img.isEmpty ? null : ApiConfig.absoluteUrl(img),
+      auctionId: '${j['auction'] ?? ''}',
+    );
+  }
 
   AuctionProduct copyWith({
     String? title,
     String? description,
     String? category,
     int? startingPrice,
+    int? amount,
     String? imageUrl,
+    String? auctionId,
   }) {
     return AuctionProduct(
       id: id,
@@ -32,7 +55,9 @@ class AuctionProduct {
       description: description ?? this.description,
       category: category ?? this.category,
       startingPrice: startingPrice ?? this.startingPrice,
+      amount: amount ?? this.amount,
       imageUrl: imageUrl ?? this.imageUrl,
+      auctionId: auctionId ?? this.auctionId,
       isOffline: isOffline,
     );
   }
@@ -43,21 +68,48 @@ class AuctionEvent {
   final String title;
   final DateTime eventDate;
   final String description;
-  final String location;
+  final String location;     // backendda yo'q — faqat ko'rsatish uchun
   final List<AuctionProduct> products;
-  final List<String> rules;
+  final List<String> rules;  // backendda yo'q
   final AuctionStatus status;
+  final bool isActive;       // backend `is_active`
 
   AuctionEvent({
     required this.id,
     required this.title,
     required this.eventDate,
     required this.description,
-    required this.location,
+    this.location = '',
     required this.products,
-    required this.rules,
+    this.rules = const [],
     this.status = AuctionStatus.kutilmoqda,
+    this.isActive = true,
   });
+
+  factory AuctionEvent.fromJson(Map<String, dynamic> j) {
+    final data = (j['data'] ?? '').toString();
+    final time = (j['time'] ?? '00:00:00').toString();
+    DateTime date;
+    try {
+      date = DateTime.parse('${data}T$time');
+    } catch (_) {
+      date = DateTime.now();
+    }
+    final active = j['is_active'] == true;
+    final prods = ((j['products'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => AuctionProduct.fromJson(e.cast<String, dynamic>()))
+        .toList();
+    return AuctionEvent(
+      id: '${j['id'] ?? ''}',
+      title: (j['title'] ?? '').toString(),
+      description: (j['description'] ?? '').toString(),
+      eventDate: date,
+      products: prods,
+      isActive: active,
+      status: active ? AuctionStatus.kutilmoqda : AuctionStatus.yakunlangan,
+    );
+  }
 
   AuctionEvent copyWith({
     String? title,
@@ -67,6 +119,7 @@ class AuctionEvent {
     List<AuctionProduct>? products,
     List<String>? rules,
     AuctionStatus? status,
+    bool? isActive,
   }) {
     return AuctionEvent(
       id: id,
@@ -77,11 +130,11 @@ class AuctionEvent {
       products: products ?? this.products,
       rules: rules ?? this.rules,
       status: status ?? this.status,
+      isActive: isActive ?? this.isActive,
     );
   }
 
-  String get statusLabel =>
-      status == AuctionStatus.kutilmoqda ? 'Kutilmoqda' : 'Yakunlangan';
+  String get statusLabel => isActive ? 'Faol' : 'Faol emas';
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────

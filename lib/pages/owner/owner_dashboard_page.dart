@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
 import '../../../models/owner_model.dart';
+import '../../../services/owner_service.dart';
+import '../../../services/api_service.dart';
 import '../../../utils/responsive.dart';
 import '../../../widgets/owner/dashboard/owner_stat_card.dart';
 import '../../../widgets/owner/dashboard/owner_welcome_card.dart';
@@ -9,21 +11,67 @@ import '../../../widgets/owner/dashboard/owner_admin_tile.dart';
 import '../../../widgets/owner/dashboard/owner_line_chart.dart';
 import '../../../widgets/owner/dashboard/owner_davomat_chart.dart';
 
-class OwnerDashboardPage extends StatelessWidget {
-  const OwnerDashboardPage({super.key});
+class OwnerDashboardPage extends StatefulWidget {
+  /// Test uchun model inektsiyasi (null bo'lsa — API'dan yuklanadi).
+  final OwnerModel? testModel;
 
-  static final _owner = OwnerModel.mock();
+  const OwnerDashboardPage({super.key, this.testModel});
+
+  @override
+  State<OwnerDashboardPage> createState() => _OwnerDashboardPageState();
+}
+
+class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
+  late Future<OwnerModel> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.testModel != null
+        ? Future.value(widget.testModel)
+        : OwnerService().fetchDashboard();
+  }
+
+  void _refresh() => setState(() => _future = widget.testModel != null
+      ? Future.value(widget.testModel)
+      : OwnerService().fetchDashboard());
 
   @override
   Widget build(BuildContext context) {
-    final owner = _owner;
+    return Scaffold(
+      backgroundColor: AppColors.scaffold,
+      body: SafeArea(
+        child: FutureBuilder<OwnerModel>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              );
+            }
+            final owner =
+                snapshot.data ?? OwnerModel.mock(name: ApiService().userName);
+            return _buildBody(context, owner);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, OwnerModel owner) {
     final r = context.r;
+
+    // Backend faqat coinlar bo'yicha haftalik o'sishni hisoblay oladi.
+    // Qolgan kartalarda tarixiy ma'lumot yo'q → o'sish ko'rsatilmaydi.
+    final coinGrowth = owner.coinGrowthPct >= 0
+        ? '+${owner.coinGrowthPct}%'
+        : '${owner.coinGrowthPct}%';
 
     final stats = [
       OwnerStat(
         label: "Jami o'quvchilar",
         value: '${owner.jami0quvchilar}',
-        growth: '+12%',
+        growth: '',
         icon: Icons.person_outline_rounded,
         iconColor: const Color(0xFF3B82F6),
         iconBg: const Color(0xFFEFF6FF),
@@ -31,7 +79,7 @@ class OwnerDashboardPage extends StatelessWidget {
       OwnerStat(
         label: 'Jami ustozlar',
         value: '${owner.jamiUstozlar}',
-        growth: '+5%',
+        growth: '',
         icon: Icons.school_outlined,
         iconColor: const Color(0xFF059669),
         iconBg: const Color(0xFFECFDF5),
@@ -39,7 +87,7 @@ class OwnerDashboardPage extends StatelessWidget {
       OwnerStat(
         label: 'Faol guruhlar',
         value: '${owner.faolGuruhlar}',
-        growth: '+8%',
+        growth: '',
         icon: Icons.groups_2_outlined,
         iconColor: const Color(0xFFF97316),
         iconBg: const Color(0xFFFFF7ED),
@@ -47,7 +95,7 @@ class OwnerDashboardPage extends StatelessWidget {
       OwnerStat(
         label: 'Jami coinlar',
         value: ownerFmtCoins(owner.jamiCoinlar),
-        growth: '+18%',
+        growth: coinGrowth,
         icon: Icons.monetization_on_outlined,
         iconColor: const Color(0xFF8B5CF6),
         iconBg: const Color(0xFFF5F3FF),
@@ -55,7 +103,7 @@ class OwnerDashboardPage extends StatelessWidget {
       OwnerStat(
         label: 'Adminlar',
         value: '${owner.adminlar}',
-        growth: '+2',
+        growth: '',
         icon: Icons.shield_outlined,
         iconColor: const Color(0xFFEF4444),
         iconBg: const Color(0xFFFEF2F2),
@@ -63,21 +111,22 @@ class OwnerDashboardPage extends StatelessWidget {
       OwnerStat(
         label: 'Kurslar',
         value: '${owner.kurslar}',
-        growth: '+1',
+        growth: '',
         icon: Icons.menu_book_outlined,
         iconColor: const Color(0xFF6366F1),
         iconBg: const Color(0xFFEEF2FF),
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: AppColors.scaffold,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(r.padH, r.padV, r.padH, 80),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    return RefreshIndicator(
+      onRefresh: () async => _refresh(),
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(r.padH, r.padV, r.padH, 80),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
               // ── Title ──────────────────────────────────────────────
               Text(
@@ -117,7 +166,7 @@ class OwnerDashboardPage extends StatelessWidget {
                   crossAxisSpacing: r.gapMd,
                   mainAxisSpacing: r.gapMd,
                   childAspectRatio:
-                  r.isPhone ? 1.0 : 1.1,
+                  r.isPhone ? 0.78 : 0.92,
                 ),
                 itemBuilder: (_, i) => OwnerStatCard(stat: stats[i]),
               ),
@@ -212,8 +261,7 @@ class OwnerDashboardPage extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 }
 

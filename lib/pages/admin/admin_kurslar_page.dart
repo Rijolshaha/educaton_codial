@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
 import '../../../models/kurs_model.dart';
+import '../../../services/course_service.dart';
 import '../../../widgets/admin/kurslar/kurs_stat_card.dart';
 import '../../../widgets/admin/kurslar/kurs_card.dart';
 import '../../../widgets/admin/kurslar/kurs_detail_dialog.dart';
@@ -15,12 +16,34 @@ class AdminKurslarPage extends StatefulWidget {
 }
 
 class _AdminKurslarPageState extends State<AdminKurslarPage> {
-  late List<KursModel> _kurslar;
+  final CourseService _service = CourseService();
+  List<KursModel> _kurslar = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _kurslar = List.from(mockKurslar);
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
+    final list = await _service.fetchCourses();
+    if (!mounted) return;
+    setState(() {
+      _kurslar = list;
+      _loading = false;
+    });
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? AppColors.red : AppColors.greenDark,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+    ));
   }
 
   // ── Computed stats ─────────────────────────────────────────────────────────
@@ -55,10 +78,20 @@ class _AdminKurslarPageState extends State<AdminKurslarPage> {
       builder: (_) => KursConfirmDialog(
         title: "Kursni o'chirish",
         message: "'${k.nomi}' kursini o'chirishni xohlaysizmi?",
-        onConfirm: () =>
-            setState(() => _kurslar.removeWhere((e) => e.id == k.id)),
+        onConfirm: () => _deleteKurs(k),
       ),
     );
+  }
+
+  Future<void> _deleteKurs(KursModel k) async {
+    final ok = await _service.deleteCourse(k.id);
+    if (!mounted) return;
+    if (!ok) {
+      _snack("O'chirib bo'lmadi", error: true);
+      return;
+    }
+    _snack("Kurs o'chirildi");
+    await _load();
   }
 
   void _openForm({KursModel? kurs}) {
@@ -66,14 +99,18 @@ class _AdminKurslarPageState extends State<AdminKurslarPage> {
       context: context,
       builder: (_) => KursFormDialog(
         kurs: kurs,
-        onSave: (saved) => setState(() {
-          if (kurs == null) {
-            _kurslar.add(saved);
-          } else {
-            final i = _kurslar.indexWhere((e) => e.id == saved.id);
-            if (i != -1) _kurslar[i] = saved;
+        onSave: (saved) async {
+          final ok = kurs == null
+              ? await _service.createCourse(saved)
+              : await _service.updateCourse(saved);
+          if (ok && mounted) {
+            _snack(kurs == null
+                ? "Kurs qo'shildi ✅"
+                : "O'zgarishlar saqlandi ✅");
+            await _load();
           }
-        }),
+          return ok;
+        },
       ),
     );
   }
@@ -83,8 +120,14 @@ class _AdminKurslarPageState extends State<AdminKurslarPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
-      body: SafeArea(
-        child: CustomScrollView(
+      body: _loading
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : SafeArea(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: _load,
+          child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             // ── Header ──
             SliverToBoxAdapter(
@@ -187,21 +230,37 @@ class _AdminKurslarPageState extends State<AdminKurslarPage> {
             ),
 
             // ── Kurs cards list ──
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                      (_, i) => KursCard(
-                    kurs: _kurslar[i],
-                    onView: () => _viewKurs(_kurslar[i]),
+            if (_kurslar.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 60),
+                  child: Column(children: [
+                    Icon(Icons.menu_book_outlined,
+                        size: 52, color: Colors.grey.shade300),
+                    const SizedBox(height: 12),
+                    const Text('Kurslar topilmadi',
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 14)),
+                  ]),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                        (_, i) => KursCard(
+                      kurs: _kurslar[i],
+                      onView: () => _viewKurs(_kurslar[i]),
+                    ),
+                    childCount: _kurslar.length,
                   ),
-                  childCount: _kurslar.length,
                 ),
               ),
-            ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
+        ),
         ),
       ),
     );

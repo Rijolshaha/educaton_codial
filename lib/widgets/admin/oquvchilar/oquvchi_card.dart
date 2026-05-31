@@ -50,11 +50,21 @@ class OquvchiCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: avatarColor.withOpacity(0.2),
                     shape: BoxShape.circle,
+                    image: (student.avatarUrl != null &&
+                            student.avatarUrl!.isNotEmpty)
+                        ? DecorationImage(
+                            image: NetworkImage(student.avatarUrl!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
-                  child: Center(
-                    child: Text(student.avatarEmoji,
-                        style: const TextStyle(fontSize: 22)),
-                  ),
+                  child: (student.avatarUrl != null &&
+                          student.avatarUrl!.isNotEmpty)
+                      ? null
+                      : Center(
+                          child: Text(student.avatarEmoji,
+                              style: const TextStyle(fontSize: 22)),
+                        ),
                 ),
                 const SizedBox(width: 10),
 

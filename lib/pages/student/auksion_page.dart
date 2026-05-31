@@ -1,127 +1,148 @@
 import 'package:flutter/material.dart';
 import '../../models/auction_model.dart';
 import '../../constants/app_colors.dart';
+import '../../services/auction_service.dart';
 import '../../widgets/students/auction/auction_countdown_card.dart';
 import '../../widgets/students/auction/auction_offline_info.dart';
 import '../../widgets/students/auction/auction_product_card.dart';
 import '../../widgets/students/auction/auction_rules_card.dart';
 
-class AuctionPage extends StatelessWidget {
+class AuctionPage extends StatefulWidget {
   const AuctionPage({super.key});
 
-  static final AuctionEvent _event = AuctionEvent(
-    id: 'a1',                              // ← FIX
-    title: 'Fevral 2026 Mega Auксioni',
-    eventDate: DateTime(2026, 2, 28, 15, 0),
-    description: "Fevral oyining eng yirik auксioni. Ajoyib sovg'alar va dasturlash uchun zarur mahsulotlar!",
-    location: "CODIAL Ta'lim Markazi, Toshkent",
-    status: AuctionStatus.kutilmoqda,      // ← FIX
-    rules: [
-      "Auксion har oyning oxirida o'tkaziladi",
-      "Faqat yig'ilgan coinlaringiz bilan ishtirok etishingiz mumkin",
-      "Auксion jarayoni ochiq va adolatli tarzda o'tkaziladi",
-      "Yutuqchi mahsulotni auксion oxirida oladi",
-      "Sarflangan coinlar qaytarilmaydi",
-    ],
-    products: [
-      AuctionProduct(
-        id: '1',
-        title: 'MacBook Air M2',
-        description: 'Dasturlash uchun mukammal noutbuk, 13 dyuymli ekran, 8GB RAM',
-        category: 'Texnologiya',
-        startingPrice: 50000,
-        imageUrl: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600',
-      ),
-      AuctionProduct(
-        id: '2',
-        title: 'iPad Pro 12.9"',
-        description: 'Zamonaviy planshet, dizayn va dasturlash uchun ideal',
-        category: 'Texnologiya',
-        startingPrice: 35000,
-        imageUrl: 'https://images.unsplash.com/photo-1544244015-0df4512a2b1e?w=600',
-      ),
-      AuctionProduct(
-        id: '3',
-        title: 'iPhone 15 Pro',
-        description: "Eng so'nggi iPhone modeli, 256GB xotira",
-        category: 'Texnologiya',
-        startingPrice: 45000,
-        imageUrl: 'https://images.unsplash.com/photo-1696446701796-da61b3b4d03e?w=600',
-      ),
-      AuctionProduct(
-        id: '4',
-        title: 'AirPods Pro 2',
-        description: 'Podcast va musiqa tinglash uchun, shovqinni bekor qilish funksiyasi bilan',
-        category: 'Audio',
-        startingPrice: 8000,
-        imageUrl: 'https://images.unsplash.com/photo-1606741965429-02919b2a4f6e?w=600',
-      ),
-      AuctionProduct(
-        id: '5',
-        title: 'Powerbank 20000mAh',
-        description: 'Kuchli quvvat banki, telefon va planshetlar uchun',
-        category: 'Aksesuar',
-        startingPrice: 800,
-        imageUrl: 'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=600',
-      ),
-    ],
-  );
+  @override
+  State<AuctionPage> createState() => _AuctionPageState();
+}
+
+class _AuctionPageState extends State<AuctionPage> {
+  final _service = AuctionService();
+  bool _loading = true;
+  AuctionEvent? _event;
+
+  static const _defaultRules = [
+    "Auksion belgilangan vaqtda o'tkaziladi",
+    "Faqat yig'ilgan coinlaringiz bilan ishtirok etishingiz mumkin",
+    "Auksion jarayoni ochiq va adolatli tarzda o'tkaziladi",
+    "Yutuqchi mahsulotni auksion oxirida oladi",
+    "Sarflangan coinlar qaytarilmaydi",
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final events = await _service.fetchAuctions();
+    if (!mounted) return;
+    AuctionEvent? active;
+    for (final e in events) {
+      if (e.isActive) {
+        active = e;
+        break;
+      }
+    }
+    active ??= events.isNotEmpty ? events.first : null;
+    setState(() {
+      _event = active;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.scaffold,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    final event = _event;
+    if (event == null) {
+      return Scaffold(
+        backgroundColor: AppColors.scaffold,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Faol auksion topilmadi',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 12),
+              TextButton(onPressed: _load, child: const Text('Qayta urinish')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final rules = event.rules.isNotEmpty ? event.rules : _defaultRules;
+
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // ── Header ──
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Auксion',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text("Coinlaringizga ajoyib sovg'alar sotuvoling!",
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-                ]),
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Auksion',
+                            style: TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text("Coinlaringizga ajoyib sovg'alar sotib oling!",
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey.shade600)),
+                      ]),
+                ),
               ),
-            ),
-
-            // ── Countdown card ──
-            SliverToBoxAdapter(
-              child: AuctionCountdownCard(event: _event),
-            ),
-
-            // ── Offline info ──
-            SliverToBoxAdapter(
-              child: AuctionOfflineInfo(event: _event),
-            ),
-
-            // ── Products header ──
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 20, 16, 12),
-                child: Text('Auксion mahsulotlari',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              SliverToBoxAdapter(
+                child: AuctionCountdownCard(event: event),
               ),
-            ),
-
-            // ── Product cards ──
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                    (_, i) => AuctionProductCard(product: _event.products[i]),
-                childCount: _event.products.length,
+              SliverToBoxAdapter(
+                child: AuctionOfflineInfo(event: event),
               ),
-            ),
-
-            // ── Rules ──
-            SliverToBoxAdapter(
-              child: AuctionRulesCard(rules: _event.rules),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
-          ],
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 20, 16, 12),
+                  child: Text('Auksion mahsulotlari',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              if (event.products.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: Text('Mahsulotlar topilmadi',
+                          style: TextStyle(color: AppColors.textSecondary)),
+                    ),
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (_, i) => AuctionProductCard(product: event.products[i]),
+                    childCount: event.products.length,
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: AuctionRulesCard(rules: rules),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            ],
+          ),
         ),
       ),
     );

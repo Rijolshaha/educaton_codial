@@ -8,7 +8,8 @@ import '../../../pages/news_page.dart';
 import '../../../pages/student/rating_page.dart';
 import '../../../pages/student/auksion_page.dart';
 import '../../../pages/baholash_nizomi_page.dart';
-import '../../../pages/registration_page.dart';
+import '../../../utils/logout.dart';
+import '../../../services/teacher_service.dart';
 
 class TeacherMainPage extends StatefulWidget {
   const TeacherMainPage({super.key});
@@ -19,9 +20,51 @@ class TeacherMainPage extends StatefulWidget {
 
 class _TeacherMainPageState extends State<TeacherMainPage> {
   int _currentIndex = 0;
+  Future<TeacherModel> _teacherFuture = TeacherService().fetchDashboard();
 
-  // Hozircha mock — keyinchalik API dan
-  final TeacherModel _teacher = TeacherModel.mock();
+  void _navigateTo(int index) =>
+      setState(() => _currentIndex = index);
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<TeacherModel>(
+      future: _teacherFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return Scaffold(
+            backgroundColor: AppColors.scaffold,
+            body: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          );
+        }
+
+        final teacher = snapshot.data ?? TeacherModel.empty();
+
+        return _TeacherShell(
+          teacher: teacher,
+          currentIndex: _currentIndex,
+          onNavigate: _navigateTo,
+          onLogout: () => logoutAndGoToLogin(context),
+        );
+      },
+    );
+  }
+}
+
+class _TeacherShell extends StatelessWidget {
+  final TeacherModel teacher;
+  final int currentIndex;
+  final void Function(int) onNavigate;
+  final VoidCallback onLogout;
+
+  const _TeacherShell({
+    required this.teacher,
+    required this.currentIndex,
+    required this.onNavigate,
+    required this.onLogout,
+  });
 
   static const List<String> _titles = [
     'Dashboard',
@@ -30,15 +73,12 @@ class _TeacherMainPageState extends State<TeacherMainPage> {
     'Reyting',
   ];
 
-  void _navigateTo(int index) =>
-      setState(() => _currentIndex = index);
-
   @override
   Widget build(BuildContext context) {
     final pages = [
       const TeacherDashboardPage(),
       const NewsPage(),
-      const TeacherBaholashPage(),
+      TeacherBaholashPage(teacher: teacher),
       const RatingPage(),
     ];
 
@@ -57,33 +97,17 @@ class _TeacherMainPageState extends State<TeacherMainPage> {
           ),
         ),
         title: Text(
-          _titles[_currentIndex],
+          _titles[currentIndex],
           style: const TextStyle(
               color: Color(0xFF111827),
               fontSize: 18,
               fontWeight: FontWeight.w800),
         ),
         actions: [
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_outlined,
-                    color: Color(0xFF374151), size: 24),
-              ),
-              Positioned(
-                top: 10, right: 10,
-                child: Container(
-                  width: 8, height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: Colors.white, width: 1.5),
-                  ),
-                ),
-              ),
-            ],
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_outlined,
+                color: Color(0xFF374151), size: 24),
           ),
           const SizedBox(width: 4),
         ],
@@ -93,25 +117,14 @@ class _TeacherMainPageState extends State<TeacherMainPage> {
         ),
       ),
       drawer: _TeacherDrawer(
-        teacher: _teacher,
-        onNavigate: _navigateTo,
-        onLogout: () => Navigator.pushAndRemoveUntil(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, anim, __) =>
-            const RegistrationPage(),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-            transitionDuration:
-            const Duration(milliseconds: 350),
-          ),
-              (route) => false,
-        ),
+        teacher: teacher,
+        onNavigate: onNavigate,
+        onLogout: onLogout,
       ),
-      body: IndexedStack(index: _currentIndex, children: pages),
+      body: IndexedStack(index: currentIndex, children: pages),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _navigateTo,
+        currentIndex: currentIndex,
+        onTap: onNavigate,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textHint,
@@ -121,23 +134,23 @@ class _TeacherMainPageState extends State<TeacherMainPage> {
             fontWeight: FontWeight.w700, fontSize: 11),
         unselectedLabelStyle: const TextStyle(
             fontWeight: FontWeight.w500, fontSize: 11),
-        items: [
-          const BottomNavigationBarItem(
+        items: const [
+          BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard_rounded),
             label: 'Dashboard',
           ),
           BottomNavigationBarItem(
-            icon: _badgeIcon(Icons.newspaper_outlined),
-            activeIcon: _badgeIcon(Icons.newspaper_rounded),
+            icon: Icon(Icons.newspaper_outlined),
+            activeIcon: Icon(Icons.newspaper_rounded),
             label: 'Yangliklar',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.assignment_outlined),
             activeIcon: Icon(Icons.assignment_rounded),
             label: 'Baholash',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.leaderboard_outlined),
             activeIcon: Icon(Icons.leaderboard_rounded),
             label: 'Reyting',
@@ -146,28 +159,6 @@ class _TeacherMainPageState extends State<TeacherMainPage> {
       ),
     );
   }
-
-  static Widget _badgeIcon(IconData icon) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      Icon(icon),
-      Positioned(
-        top: -4, right: -6,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-              color: AppColors.red,
-              borderRadius: BorderRadius.circular(10)),
-          child: const Text('5',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800)),
-        ),
-      ),
-    ],
-  );
 }
 
 // ─── Teacher Drawer ───────────────────────────────────────────────────────────
@@ -258,7 +249,6 @@ class _TeacherDrawer extends StatelessWidget {
                 _DrawerTile(
                   icon: Icons.newspaper_outlined,
                   label: 'Yangliklar',
-                  badge: 5,
                   onTap: () {
                     Navigator.pop(context);
                     onNavigate(1);

@@ -36,7 +36,8 @@ class _OwnerLineChartState extends State<OwnerLineChart> {
     final chartH = size.height - bottomPad - topPad;
     final maxVal = widget.data.reduce(max).toDouble();
     final minVal = (widget.data.reduce(min) * 0.85).toDouble();
-    final range  = maxVal - minVal;
+    final rawRange = maxVal - minVal;
+    final range  = rawRange == 0 ? 1.0 : rawRange;
     final step   = chartW / (widget.data.length - 1);
 
     for (var i = 0; i < widget.data.length; i++) {
@@ -108,7 +109,8 @@ class _LinePainter extends CustomPainter {
     final chartH = size.height - bottomPad - topPad;
     final maxVal = data.reduce(max).toDouble();
     final minVal = (data.reduce(min) * 0.85).toDouble();
-    final range  = maxVal - minVal;
+    final rawRange = maxVal - minVal;
+    final range  = rawRange == 0 ? 1.0 : rawRange;
     final step   = chartW / (data.length - 1);
 
     // ── Grid + Y labels ──

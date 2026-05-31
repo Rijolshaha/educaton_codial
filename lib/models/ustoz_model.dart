@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
+import '../services/config/api_config.dart';
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -12,47 +13,122 @@ class UstozModel {
   final String ism;
   final String email;
   final String kurs;
+  final String bio;
   final int guruhlarSoni;
   final int oquvchilarSoni;
+  final int pointLimit;
   final UstozStatus status;
   final String avatarEmoji;
   final String avatarColor;
+  final String? avatarUrl; // backend `avatar` (rasm URL)
 
   UstozModel({
     required this.id,
     required this.ism,
     required this.email,
     required this.kurs,
+    this.bio = '',
     required this.guruhlarSoni,
     required this.oquvchilarSoni,
+    this.pointLimit = 0,
     required this.status,
     required this.avatarEmoji,
     required this.avatarColor,
+    this.avatarUrl,
   });
 
   UstozModel copyWith({
     String? ism,
     String? email,
     String? kurs,
+    String? bio,
     int? guruhlarSoni,
     int? oquvchilarSoni,
+    int? pointLimit,
     UstozStatus? status,
     String? avatarEmoji,
     String? avatarColor,
+    String? avatarUrl,
   }) =>
       UstozModel(
         id: id,
         ism: ism ?? this.ism,
         email: email ?? this.email,
         kurs: kurs ?? this.kurs,
+        bio: bio ?? this.bio,
         guruhlarSoni: guruhlarSoni ?? this.guruhlarSoni,
         oquvchilarSoni: oquvchilarSoni ?? this.oquvchilarSoni,
+        pointLimit: pointLimit ?? this.pointLimit,
         status: status ?? this.status,
         avatarEmoji: avatarEmoji ?? this.avatarEmoji,
         avatarColor: avatarColor ?? this.avatarColor,
+        avatarUrl: avatarUrl ?? this.avatarUrl,
       );
 
   String get statusLabel => status == UstozStatus.faol ? 'Faol' : 'Nofaol';
+
+  // ── JSON ──────────────────────────────────────────────────────────────────
+
+  /// Backend `Mentor` shakli:
+  /// `{id, user:{username,email,role}, bio, avatar, direction,
+  ///   point_limit, groups:[{active, course:{name}}], total_students}`
+  factory UstozModel.fromJson(Map<String, dynamic> json) {
+    int asInt(dynamic v) =>
+        v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+
+    final id = (json['id'] ?? '').toString();
+    final user = json['user'] as Map<String, dynamic>?;
+    final username = (user?['username'] ?? '').toString();
+    final email = (json['email'] ?? user?['email'] ?? '').toString();
+
+    final groups = (json['groups'] as List?) ?? const [];
+    final hasActive =
+        groups.any((g) => g is Map && g['active'] == true);
+
+    // Kurs (direction) — bo'sh bo'lsa guruhlardagi eng ko'p uchragan kursdan.
+    var kurs = (json['direction'] ?? '').toString().trim();
+    if (kurs.isEmpty) kurs = _topCourse(groups);
+
+    final avatar = (json['avatar'] ?? '').toString();
+
+    return UstozModel(
+      id: id,
+      ism: username.isEmpty ? 'Ustoz' : username,
+      email: email,
+      kurs: kurs,
+      bio: (json['bio'] ?? '').toString(),
+      guruhlarSoni: groups.length,
+      oquvchilarSoni: asInt(json['total_students']),
+      pointLimit: asInt(json['point_limit']),
+      status: hasActive ? UstozStatus.faol : UstozStatus.nofaol,
+      avatarEmoji: '🧑‍🏫',
+      avatarColor: _colorForSeed(id.isNotEmpty ? id : username),
+      avatarUrl: avatar.isEmpty ? null : ApiConfig.absoluteUrl(avatar),
+    );
+  }
+
+  static String _topCourse(List groups) {
+    final counts = <String, int>{};
+    for (final g in groups) {
+      if (g is Map && g['course'] is Map) {
+        final name = (g['course']['name'] ?? '').toString();
+        if (name.isNotEmpty) counts[name] = (counts[name] ?? 0) + 1;
+      }
+    }
+    if (counts.isEmpty) return '';
+    return counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+
+  static const List<String> _palette = [
+    '#3B82F6', '#8B5CF6', '#EF4444', '#06B6D4',
+    '#A855F7', '#F97316', '#059669', '#F59E0B',
+  ];
+
+  static String _colorForSeed(String seed) {
+    if (seed.isEmpty) return _palette.first;
+    final hash = seed.codeUnits.fold<int>(0, (a, b) => a + b);
+    return _palette[hash % _palette.length];
+  }
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────

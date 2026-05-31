@@ -9,7 +9,8 @@ enum KursStatus { faol, nofaol }
 class KursIconOption {
   final IconData icon;
   final String label;
-  const KursIconOption(this.icon, this.label);
+  final String code; // backend `icon` qiymati (masalan: 'web', 'mobile')
+  const KursIconOption(this.icon, this.label, this.code);
 }
 
 // ─── Rang Option ──────────────────────────────────────────────────────────────
@@ -18,34 +19,63 @@ class KursRangOption {
   final Color color1;
   final Color color2;
   final String label;
-  const KursRangOption(this.color1, this.color2, this.label);
+  final String code; // backend `color` qiymati (masalan: 'blue', 'pink')
+  const KursRangOption(this.color1, this.color2, this.label, this.code);
 }
 
 // ─── Available Options ────────────────────────────────────────────────────────
 
 final List<KursIconOption> kursIconOptions = [
-  KursIconOption(Icons.dns_rounded,             'Server'),
-  KursIconOption(Icons.code_rounded,            'Kod'),
-  KursIconOption(Icons.book_outlined,           'Kitob'),
-  KursIconOption(Icons.phone_android_rounded,   'Mobil'),
-  KursIconOption(Icons.palette_rounded,         'Palette'),
-  KursIconOption(Icons.trending_up_rounded,     'Trend'),
-  KursIconOption(Icons.security_rounded,        'Xavfsizlik'),
-  KursIconOption(Icons.design_services_rounded, 'Dizayn'),
-  KursIconOption(Icons.web_rounded,             'Web'),
-  KursIconOption(Icons.camera_alt_rounded,      'Kamera'),
+  KursIconOption(Icons.dns_rounded,             'Server',     'server'),
+  KursIconOption(Icons.code_rounded,            'Kod',        'code'),
+  KursIconOption(Icons.book_outlined,           'Kitob',      'book'),
+  KursIconOption(Icons.phone_android_rounded,   'Mobil',      'mobile'),
+  KursIconOption(Icons.palette_rounded,         'Palette',    'palette'),
+  KursIconOption(Icons.trending_up_rounded,     'Trend',      'trend'),
+  KursIconOption(Icons.security_rounded,        'Xavfsizlik', 'security'),
+  KursIconOption(Icons.design_services_rounded, 'Dizayn',     'design'),
+  KursIconOption(Icons.web_rounded,             'Web',        'web'),
+  KursIconOption(Icons.camera_alt_rounded,      'Kamera',     'camera'),
 ];
 
 final List<KursRangOption> kursRangOptions = [
-  KursRangOption(const Color(0xFF22C55E), const Color(0xFF15803D), 'Green'),
-  KursRangOption(const Color(0xFF3B82F6), const Color(0xFF1D4ED8), 'Blue'),
-  KursRangOption(const Color(0xFF6366F1), const Color(0xFF4338CA), 'Indigo'),
-  KursRangOption(const Color(0xFFA855F7), const Color(0xFF7E22CE), 'Purple'),
-  KursRangOption(const Color(0xFFF97316), const Color(0xFFEA580C), 'Orange'),
-  KursRangOption(const Color(0xFFEC4899), const Color(0xFFBE185D), 'Pink'),
-  KursRangOption(const Color(0xFF14B8A6), const Color(0xFF0F766E), 'Teal'),
-  KursRangOption(const Color(0xFFEF4444), const Color(0xFFB91C1C), 'Red'),
+  KursRangOption(const Color(0xFF22C55E), const Color(0xFF15803D), 'Green',  'green'),
+  KursRangOption(const Color(0xFF3B82F6), const Color(0xFF1D4ED8), 'Blue',   'blue'),
+  KursRangOption(const Color(0xFF6366F1), const Color(0xFF4338CA), 'Indigo', 'indigo'),
+  KursRangOption(const Color(0xFFA855F7), const Color(0xFF7E22CE), 'Purple', 'purple'),
+  KursRangOption(const Color(0xFFF97316), const Color(0xFFEA580C), 'Orange', 'orange'),
+  KursRangOption(const Color(0xFFEC4899), const Color(0xFFBE185D), 'Pink',   'pink'),
+  KursRangOption(const Color(0xFF14B8A6), const Color(0xFF0F766E), 'Teal',   'teal'),
+  KursRangOption(const Color(0xFFEF4444), const Color(0xFFB91C1C), 'Red',    'red'),
 ];
+
+/// Backend `icon` kodidan mos `KursIconOption` topadi (topilmasa — birinchisi).
+KursIconOption kursIconFromCode(String? code) {
+  final c = (code ?? '').toLowerCase().trim();
+  if (c.isEmpty) return kursIconOptions[0];
+  for (final o in kursIconOptions) {
+    if (o.code == c) return o;
+  }
+  return kursIconOptions[0];
+}
+
+/// Backend `color` kodidan mos `KursRangOption` topadi (alias + fallback bilan).
+KursRangOption kursRangFromCode(String? code) {
+  var c = (code ?? '').toLowerCase().trim();
+  if (c.isEmpty) return kursRangOptions[1]; // default: blue
+  const aliases = {
+    'amber': 'orange',
+    'yellow': 'orange',
+    'cyan': 'teal',
+    'violet': 'purple',
+    'rose': 'pink',
+  };
+  c = aliases[c] ?? c;
+  for (final o in kursRangOptions) {
+    if (o.code == c) return o;
+  }
+  return kursRangOptions[1];
+}
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +123,40 @@ class KursModel {
         guruhlar: guruhlar ?? this.guruhlar,
         oquvchilar: oquvchilar ?? this.oquvchilar,
       );
+
+  // ── JSON ──────────────────────────────────────────────────────────────────
+
+  /// Backend `Course` shakli:
+  /// `{id, name, icon, color, description, is_active,
+  ///   group_count, student_count, teacher_count}`
+  factory KursModel.fromJson(Map<String, dynamic> json) {
+    int asInt(dynamic v) =>
+        v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+
+    return KursModel(
+      id: (json['id'] ?? '').toString(),
+      nomi: (json['name'] ?? json['nomi'] ?? '').toString(),
+      tavsif: (json['description'] ?? json['tavsif'] ?? '').toString(),
+      belgi: kursIconFromCode(json['icon']?.toString()),
+      rang: kursRangFromCode(json['color']?.toString()),
+      status: (json['is_active'] == false)
+          ? KursStatus.nofaol
+          : KursStatus.faol,
+      oqituvchilar: asInt(json['teacher_count']),
+      guruhlar: asInt(json['group_count']),
+      oquvchilar: asInt(json['student_count']),
+    );
+  }
+
+  /// Backendga yuborish uchun (POST /courses/, PATCH /courses/{id}/).
+  /// `*_count` maydonlari read-only — yuborilmaydi.
+  Map<String, dynamic> toJson() => {
+    'name': nomi,
+    'icon': belgi.code,
+    'color': rang.code,
+    'description': tavsif,
+    'is_active': status == KursStatus.faol,
+  };
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────

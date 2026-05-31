@@ -5,14 +5,16 @@ import '../../../models/oquvchi_admin_model.dart';
 
 class OquvchiDetailDialog extends StatelessWidget {
   final StudentModel student;
+  final String? ustoz;
 
-  const OquvchiDetailDialog({super.key, required this.student});
+  const OquvchiDetailDialog({super.key, required this.student, this.ustoz});
 
   @override
   Widget build(BuildContext context) {
     final avatarColor = oquvchiAvatarColor(student.avatarColor);
     final groupColor  = oquvchiGroupColor(student.group);
-    final ustoz = guruhUstozMap[student.group] ?? '—';
+    final ustozName =
+        (ustoz != null && ustoz!.isNotEmpty) ? ustoz! : (guruhUstozMap[student.group] ?? '—');
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -80,11 +82,21 @@ class OquvchiDetailDialog extends StatelessWidget {
                     shape: BoxShape.circle,
                     border:
                     Border.all(color: Colors.white, width: 3),
+                    image: (student.avatarUrl != null &&
+                            student.avatarUrl!.isNotEmpty)
+                        ? DecorationImage(
+                            image: NetworkImage(student.avatarUrl!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
-                  child: Center(
-                    child: Text(student.avatarEmoji,
-                        style: const TextStyle(fontSize: 34)),
-                  ),
+                  child: (student.avatarUrl != null &&
+                          student.avatarUrl!.isNotEmpty)
+                      ? null
+                      : Center(
+                          child: Text(student.avatarEmoji,
+                              style: const TextStyle(fontSize: 34)),
+                        ),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -121,7 +133,7 @@ class OquvchiDetailDialog extends StatelessWidget {
                 _DetailRow(
                   icon: Icons.school_outlined,
                   label: 'Ustoz',
-                  value: ustoz,
+                  value: ustozName,
                 ),
                 const SizedBox(height: 16),
                 // Coins row

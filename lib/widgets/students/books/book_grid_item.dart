@@ -16,8 +16,11 @@ class BookGridItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOqiyapman = book.status == BookStatus.oqiyapman;
-    final statusColor = isOqiyapman ? AppColors.blue : AppColors.green;
+    final statusColor = switch (book.status) {
+      BookStatus.oqiyapman        => AppColors.blue,
+      BookStatus.tugatdim         => AppColors.green,
+      BookStatus.rejalashtirilgan => AppColors.orange,
+    };
 
     return Container(
       decoration: BoxDecoration(

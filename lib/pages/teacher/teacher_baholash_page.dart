@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../constants/app_colors.dart';
 import '../../../models/teacher_model.dart';
+import '../../../services/teacher_service.dart';
 
 // ─── Coin constants ───────────────────────────────────────────────────────────
 
@@ -56,17 +57,22 @@ class _StudentGrade {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 class TeacherBaholashPage extends StatefulWidget {
-  const TeacherBaholashPage({super.key});
+  final TeacherModel teacher;
+
+  const TeacherBaholashPage({super.key, required this.teacher});
 
   @override
   State<TeacherBaholashPage> createState() => _TeacherBaholashPageState();
 }
 
 class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
-  static final _teacher = TeacherModel.mock();
+  TeacherModel get _teacher => widget.teacher;
 
   int _selectedGroupIndex = 0;
-  late List<_StudentGrade> _grades;
+  List<_StudentGrade> _grades = [];
+  Map<String, int> _givePointIds = {};
+  bool _loadingAssessment = false;
+  bool _saving = false;
 
   // Barchaga qo'llash state
   bool _allQatnashdi = false;
@@ -80,14 +86,20 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
   @override
   void initState() {
     super.initState();
-    // Bugungi kunga mos birinchi guruhni avtomatik tanlash
-    final todayIdx = _todayGroupIndexes;
-    if (todayIdx.isNotEmpty) {
-      _selectedGroupIndex = todayIdx.first;
-    } else {
-      _selectedGroupIndex = 0;
+    if (_teacher.groups.isNotEmpty) {
+      final todayIdx = _todayGroupIndexes;
+      _selectedGroupIndex = todayIdx.isNotEmpty ? todayIdx.first : 0;
+      _loadAssessment();
     }
-    _initGrades();
+  }
+
+  @override
+  void didUpdateWidget(TeacherBaholashPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.teacher != widget.teacher && _teacher.groups.isNotEmpty) {
+      _selectedGroupIndex = 0;
+      _loadAssessment();
+    }
   }
 
   /// Bugungi kunga mos keluvchi guruhlar indekslari
@@ -115,12 +127,57 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
     }
   }
 
-  void _initGrades() {
-    _grades = _currentGroup.students.map((s) => _StudentGrade(s)).toList();
+  Future<void> _loadAssessment() async {
+    if (_teacher.groups.isEmpty) return;
+    setState(() => _loadingAssessment = true);
+
+    final group = _currentGroup;
+    final data = await TeacherService().fetchAssessment(group.id);
+    _givePointIds = data?.givePointIds ?? {};
+
+    _grades = group.students.map((s) {
+      final grade = _StudentGrade(s);
+      final existing = data?.grades[s.id];
+      if (existing != null) {
+        grade.vazifa = existing.vazifa;
+        grade.qatnashdi = existing.qatnashdi;
+        grade.vaqtida = existing.vaqtida;
+        grade.faollik = existing.faollik;
+        grade.organish = existing.organish;
+        grade.kitob = existing.kitob;
+        grade.tozalik = existing.tozalik;
+        grade.podcast = existing.podcast;
+        grade.podcastExtra = existing.podcastExtra;
+      }
+      return grade;
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _loadingAssessment = false;
+        _allQatnashdi = false;
+        _allVaqtida = false;
+        _allFaollik = false;
+        _allOrganish = false;
+        _allKitob = false;
+        _allTozalik = false;
+        _allPodcast = false;
+      });
+    }
   }
 
-  TeacherGroup get _currentGroup =>
-      _teacher.groups[_selectedGroupIndex];
+  TeacherGroup get _currentGroup {
+    if (_teacher.groups.isEmpty) {
+      return const TeacherGroup(
+        id: '',
+        name: '',
+        schedule: '',
+        students: [],
+      );
+    }
+    final idx = _selectedGroupIndex.clamp(0, _teacher.groups.length - 1);
+    return _teacher.groups[idx];
+  }
 
   bool get _isTodayClassDay => _isClassDay(_currentGroup.schedule);
 
@@ -153,27 +210,99 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
 
   void _onGroupChanged(int? index) {
     if (index == null) return;
-    setState(() {
-      _selectedGroupIndex = index;
-      _initGrades();
-      _allQatnashdi = false; _allVaqtida = false; _allFaollik  = false;
-      _allOrganish  = false; _allKitob   = false; _allTozalik  = false;
-      _allPodcast   = false;
-    });
+    setState(() => _selectedGroupIndex = index);
+    _loadAssessment();
   }
 
-  void _onSave() {
+  Future<void> _onSave() async {
+    if (_teacher.groups.isEmpty || _saving) return;
+
+    setState(() => _saving = true);
+    final entries = _grades
+        .map((g) => AssessmentEntry(
+              studentId: g.student.id,
+              vazifa: g.vazifa,
+              qatnashdi: g.qatnashdi,
+              vaqtida: g.vaqtida,
+              faollik: g.faollik,
+              organish: g.organish,
+              kitob: g.kitob,
+              tozalik: g.tozalik,
+              podcast: g.podcast,
+              podcastExtra: g.podcastExtra,
+              existingGivePointIds: _givePointIds,
+            ))
+        .toList();
+
+    final ok = await TeacherService().saveAssessment(
+      groupId: _currentGroup.id,
+      entries: entries,
+    );
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Text('Baholar saqlandi! ✅'),
-      backgroundColor: AppColors.green,
+      content: Text(ok ? 'Baholar saqlandi! ✅' : 'Saqlashda xatolik yuz berdi'),
+      backgroundColor: ok ? AppColors.green : AppColors.red,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.all(16),
     ));
+
+    if (ok) await _loadAssessment();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_teacher.groups.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.scaffold,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.groups_2_outlined,
+                      size: 56, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Guruhlar topilmadi',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sizga biriktirilgan guruh yo\'q. Admin orqali guruh biriktirilgandan keyin baholash mumkin.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_loadingAssessment && _grades.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.scaffold,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       body: SafeArea(
@@ -208,9 +337,18 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
                 child: SizedBox(
                   height: 52,
                   child: ElevatedButton.icon(
-                    onPressed: _onSave,
-                    icon: const Icon(Icons.save_outlined, size: 20),
-                    label: const Text('Saqlash',
+                    onPressed: _saving ? null : _onSave,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.save_outlined, size: 20),
+                    label: Text(_saving ? 'Saqlanmoqda...' : 'Saqlash',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w800)),
                     style: ElevatedButton.styleFrom(

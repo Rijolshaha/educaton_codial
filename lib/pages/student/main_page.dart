@@ -7,7 +7,8 @@ import 'package:educaton_codial/pages/student/student_profile_page.dart';
 import 'package:educaton_codial/models/student_model.dart';
 import 'package:educaton_codial/pages/news_page.dart';
 import 'package:educaton_codial/pages/baholash_nizomi_page.dart';
-import 'package:educaton_codial/pages/registration_page.dart';
+import 'package:educaton_codial/utils/logout.dart';
+import 'package:educaton_codial/services/student_service.dart';
 import 'package:flutter/material.dart';
 
 class MainPage extends StatefulWidget {
@@ -19,6 +20,8 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int currentIndex = 0;
+  final _studentService = StudentService();
+  StudentModel? _profile;
 
   static const List<String> _titles = [
     'Bosh sahifa',
@@ -32,9 +35,32 @@ class _MainPageState extends State<MainPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final p = await _studentService.fetchProfile();
+    if (mounted) setState(() => _profile = p);
+  }
+
+  void _openProfile() {
+    final p = _profile;
+    if (p == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => StudentProfilePage(student: p)),
+    ).then((_) => _loadProfile());
+  }
+
+  @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
-      HomePage(onNavigate: _navigateTo), // ← callback uzatiladi
+      HomePage(
+        onNavigate: _navigateTo,
+        onOpenProfile: _openProfile,
+      ),
       const RatingPage(),
       const BookPage(),
       const AuctionPage(),
@@ -92,6 +118,8 @@ class _MainPageState extends State<MainPage> {
       drawer: _AppDrawer(
         currentIndex: currentIndex,
         onSelect: _navigateTo,
+        profile: _profile,
+        onOpenProfile: _openProfile,
       ),
       body: IndexedStack(index: currentIndex, children: pages),
       bottomNavigationBar: BottomNavigationBar(
@@ -136,11 +164,19 @@ class _MainPageState extends State<MainPage> {
 class _AppDrawer extends StatelessWidget {
   final int currentIndex;
   final void Function(int) onSelect;
-  const _AppDrawer({required this.currentIndex, required this.onSelect});
+  final StudentModel? profile;
+  final VoidCallback onOpenProfile;
+
+  const _AppDrawer({
+    required this.currentIndex,
+    required this.onSelect,
+    required this.profile,
+    required this.onOpenProfile,
+  });
 
   static const List<_DrawerItem> _items = [
     _DrawerItem(index: 0,  icon: Icons.dashboard_outlined,    activeIcon: Icons.dashboard_rounded,    label: 'Dashboard',       badge: 0),
-    _DrawerItem(index: -1, icon: Icons.newspaper_outlined,     activeIcon: Icons.newspaper_rounded,    label: 'Yangliklar',      badge: 5),
+    _DrawerItem(index: -1, icon: Icons.newspaper_outlined,     activeIcon: Icons.newspaper_rounded,    label: 'Yangliklar',      badge: 0),
     _DrawerItem(index: -2, icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,       label: 'Profil',          badge: 0),
     _DrawerItem(index: 1,  icon: Icons.leaderboard_outlined,   activeIcon: Icons.leaderboard_rounded,  label: 'Reyting',         badge: 0),
     _DrawerItem(index: 2,  icon: Icons.menu_book_outlined,     activeIcon: Icons.menu_book_rounded,    label: 'Kitoblarim',      badge: 0),
@@ -222,11 +258,7 @@ class _AppDrawer extends StatelessWidget {
                       Navigator.push(ctx, MaterialPageRoute(
                           builder: (_) => const NewsPage()));
                     } else if (item.index == -2) {
-                      // Profil
-                      Navigator.push(ctx, MaterialPageRoute(
-                          builder: (_) => StudentProfilePage(
-                            student: studentsHaftalik[4],
-                          )));
+                      onOpenProfile();
                     } else if (item.index == -3) {
                       // Baholash nizomi
                       Navigator.push(ctx, MaterialPageRoute(
@@ -252,22 +284,25 @@ class _AppDrawer extends StatelessWidget {
                         decoration: BoxDecoration(
                             color: const Color(0xFF45B7D1).withOpacity(0.15),
                             shape: BoxShape.circle),
-                        child: const Center(
-                            child: Text('🧔', style: TextStyle(fontSize: 24))),
+                        child: Center(
+                            child: Text(
+                              profile?.avatarEmoji ?? '🧑',
+                              style: const TextStyle(fontSize: 24))),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Hasanali Turdialiyev',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: Color(0xFF111827)),
-                                overflow: TextOverflow.ellipsis),
-                            SizedBox(height: 2),
-                            Text('Student',
+                            Text(
+                              profile?.name ?? 'Yuklanmoqda...',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: Color(0xFF111827)),
+                              overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 2),
+                            const Text('Student',
                                 style: TextStyle(
                                     fontSize: 12, color: Color(0xFF6B7280))),
                           ],
@@ -277,16 +312,7 @@ class _AppDrawer extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   GestureDetector(
-                    onTap: () => Navigator.pushAndRemoveUntil(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (_, anim, __) => const RegistrationPage(),
-                        transitionsBuilder: (_, anim, __, child) =>
-                            FadeTransition(opacity: anim, child: child),
-                        transitionDuration: const Duration(milliseconds: 350),
-                      ),
-                          (route) => false,
-                    ),
+                    onTap: () => logoutAndGoToLogin(context),
                     child: Row(
                       children: [
                         Icon(Icons.logout_rounded, color: AppColors.red, size: 20),

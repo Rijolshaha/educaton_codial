@@ -28,7 +28,7 @@ class _OwnerDavomatChartState extends State<OwnerDavomatChart> {
     final chartH = size.height - bottomPad - topPad;
     final maxVal = data.reduce(max).toDouble();
     final minVal = 0.0;
-    final range  = maxVal - minVal;
+    final range  = (maxVal - minVal) == 0 ? 1.0 : (maxVal - minVal);
     final step   = chartW / (data.length - 1);
 
     for (var i = 0; i < data.length; i++) {
@@ -87,16 +87,20 @@ class _OwnerDavomatChartState extends State<OwnerDavomatChart> {
 
           // ── Stats ──
           Row(children: [
-            _Stat(
-              value: '${widget.owner.ortachaDavomat}%',
-              label: "O'rtacha davomat",
-              color: const Color(0xFF059669),
+            Expanded(
+              child: _Stat(
+                value: '${widget.owner.ortachaDavomat}%',
+                label: "O'rtacha davomat",
+                color: const Color(0xFF059669),
+              ),
             ),
-            const SizedBox(width: 24),
-            _Stat(
-              value: '${widget.owner.bugunQatnashdi}',
-              label: 'Bugun qatnashdi',
-              color: AppColors.primary,
+            const SizedBox(width: 16),
+            Expanded(
+              child: _Stat(
+                value: '${widget.owner.bugunQatnashdi}',
+                label: 'Bugun qatnashdi',
+                color: AppColors.primary,
+              ),
             ),
           ]),
           const SizedBox(height: 12),
@@ -145,14 +149,18 @@ class _OwnerDavomatChartState extends State<OwnerDavomatChart> {
 
           // ── Legend ──
           Row(children: [
-            _LegendDot(
-                color: const Color(0xFF059669),
-                label: 'Qatnashganlar'),
+            Flexible(
+              child: _LegendDot(
+                  color: const Color(0xFF059669),
+                  label: 'Qatnashganlar'),
+            ),
             const SizedBox(width: 16),
-            _LegendDot(
-                color: Colors.grey.shade400,
-                label: "Jami o'quvchilar",
-                hollow: true),
+            Flexible(
+              child: _LegendDot(
+                  color: Colors.grey.shade400,
+                  label: "Jami o'quvchilar",
+                  hollow: true),
+            ),
           ]),
         ],
       ),
@@ -188,7 +196,7 @@ class _DavomatPainter extends CustomPainter {
     final chartH = size.height - bottomPad - topPad;
     final maxVal = data.reduce(max).toDouble();
     const minVal = 0.0;
-    final range  = maxVal - minVal;
+    final range  = (maxVal - minVal) == 0 ? 1.0 : (maxVal - minVal);
     final step   = chartW / (data.length - 1);
 
     // ── Grid + Y labels ──
@@ -390,6 +398,8 @@ class _Stat extends StatelessWidget {
               fontWeight: FontWeight.w900,
               color: color)),
       Text(label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
               fontSize: 12, color: AppColors.textSecondary)),
     ],
@@ -418,9 +428,13 @@ class _LegendDot extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 6),
-      Text(label,
-          style: const TextStyle(
-              fontSize: 12, color: AppColors.textSecondary)),
+      Flexible(
+        child: Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                fontSize: 12, color: AppColors.textSecondary)),
+      ),
     ],
   );
 }

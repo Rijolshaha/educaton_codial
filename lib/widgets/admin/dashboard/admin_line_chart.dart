@@ -20,7 +20,20 @@ class AdminLineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (data.isEmpty || labels.isEmpty) {
+      return SizedBox(
+        height: height,
+        child: const Center(
+          child: Text(
+            "Ma'lumot yo'q",
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
+      width: double.infinity,
       height: height,
       child: CustomPaint(
         painter: _LineChartPainter(
@@ -29,6 +42,7 @@ class AdminLineChart extends StatelessWidget {
           color: color,
           filled: filled,
         ),
+        child: const SizedBox.expand(),
       ),
     );
   }
@@ -49,15 +63,19 @@ class _LineChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const leftPad   = 46.0;
+    if (data.isEmpty || size.width <= 0 || size.height <= 0) return;
+
+    const leftPad = 46.0;
     const bottomPad = 28.0;
-    const topPad    = 10.0;
+    const topPad = 10.0;
     final chartW = size.width - leftPad;
     final chartH = size.height - bottomPad - topPad;
+    if (chartW <= 0 || chartH <= 0) return;
 
     final maxVal = data.reduce(max).toDouble();
-    final minVal = (data.reduce(min) * 0.85).toDouble();
-    final range  = maxVal - minVal;
+    final minVal = filled ? 0.0 : (data.reduce(min) * 0.85);
+    final rawRange = maxVal - minVal;
+    final range = rawRange == 0 ? 1.0 : rawRange;
 
     // Grid
     final gridPaint = Paint()
@@ -72,7 +90,19 @@ class _LineChartPainter extends CustomPainter {
           const TextStyle(fontSize: 9, color: AppColors.textSecondary));
     }
 
-    // Points
+    // Bitta nuqta bo'lsa — markazda chizamiz
+    if (data.length == 1) {
+      final x = leftPad + chartW / 2;
+      final y = topPad + chartH - (chartH * (data[0] - minVal) / range);
+      canvas.drawCircle(Offset(x, y), 4.5, Paint()..color = Colors.white);
+      canvas.drawCircle(Offset(x, y), 3.0, Paint()..color = color);
+      if (labels.isNotEmpty) {
+        _textCentered(canvas, labels[0], x, topPad + chartH + 6, size.width,
+            const TextStyle(fontSize: 9, color: AppColors.textSecondary));
+      }
+      return;
+    }
+
     final step = chartW / (data.length - 1);
     final points = List.generate(data.length, (i) {
       final x = leftPad + step * i;
@@ -80,7 +110,6 @@ class _LineChartPainter extends CustomPainter {
       return Offset(x, y);
     });
 
-    // Fill area
     if (filled) {
       final fillPath = Path()
         ..moveTo(points.first.dx, topPad + chartH);
@@ -103,7 +132,6 @@ class _LineChartPainter extends CustomPainter {
       );
     }
 
-    // Line
     final linePath = Path()..moveTo(points.first.dx, points.first.dy);
     for (var i = 1; i < points.length; i++) {
       linePath.lineTo(points[i].dx, points[i].dy);
@@ -117,19 +145,20 @@ class _LineChartPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Dots
     for (final p in points) {
       canvas.drawCircle(p, 4.5, Paint()..color = Colors.white);
       canvas.drawCircle(p, 3.0, Paint()..color = color);
     }
 
-    // X labels (every 2nd)
-    for (var i = 0; i < labels.length; i++) {
-      if (i % 2 == 0) {
-        _text(
+    final labelStep = labels.length > 8 ? 2 : 1;
+    for (var i = 0; i < labels.length && i < points.length; i++) {
+      if (i % labelStep == 0) {
+        _textCentered(
           canvas,
           labels[i],
-          Offset(points[i].dx - 8, topPad + chartH + 6),
+          points[i].dx,
+          topPad + chartH + 6,
+          size.width,
           const TextStyle(fontSize: 9, color: AppColors.textSecondary),
         );
       }
@@ -144,6 +173,22 @@ class _LineChartPainter extends CustomPainter {
     tp.paint(canvas, offset);
   }
 
+  void _textCentered(Canvas canvas, String text, double centerX, double y,
+      double maxWidth, TextStyle style) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    var dx = centerX - tp.width / 2;
+    if (dx < 0) dx = 0;
+    if (dx + tp.width > maxWidth) dx = maxWidth - tp.width;
+    tp.paint(canvas, Offset(dx, y));
+  }
+
   @override
-  bool shouldRepaint(_LineChartPainter old) => false;
+  bool shouldRepaint(_LineChartPainter old) =>
+      old.data != data ||
+      old.labels != labels ||
+      old.color != color ||
+      old.filled != filled;
 }

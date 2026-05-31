@@ -1,5 +1,7 @@
 // ─── Admin Stats Model ────────────────────────────────────────────────────────
 
+import 'student_model.dart';
+
 class AdminStats {
   final int totalStudents;
   final int totalTeachers;
@@ -33,7 +35,48 @@ class AdminStats {
   );
 }
 
-// ─── Bar Chart Data ───────────────────────────────────────────────────────────
+// ─── Admin Dashboard (API agregatsiyasi) ────────────────────────────────────────
+
+class AdminDashboardModel {
+  final AdminStats stats;
+  final List<BarChartItem> groupBarData;
+  final List<int> weekTrendData;
+  final List<String> weekTrendLabels;
+  final List<int> attendanceData;
+  final List<String> attendanceLabels;
+  final int ortachaDavomat;
+  final int bugunQatnashdi;
+  final List<StudentModel> topStudents;
+  final List<GroupModel> topGroups;
+
+  const AdminDashboardModel({
+    required this.stats,
+    required this.groupBarData,
+    required this.weekTrendData,
+    required this.weekTrendLabels,
+    required this.attendanceData,
+    required this.attendanceLabels,
+    required this.ortachaDavomat,
+    required this.bugunQatnashdi,
+    required this.topStudents,
+    required this.topGroups,
+  });
+
+  static AdminDashboardModel mock() => AdminDashboardModel(
+        stats: AdminStats.mock,
+        groupBarData: mockGroupBarData,
+        weekTrendData: mockWeekTrendData,
+        weekTrendLabels: mockWeekTrendLabels,
+        attendanceData: mockAttendanceData,
+        attendanceLabels: mockAttendanceLabels,
+        ortachaDavomat: 89,
+        bugunQatnashdi: 47,
+        topStudents: studentsHaftalik.take(5).toList(),
+        topGroups: groupsHaftalik,
+      );
+}
+
+// ─── Bar Chart Data (mock) ────────────────────────────────────────────────────
 
 class BarChartItem {
   final String label;
@@ -41,7 +84,7 @@ class BarChartItem {
   const BarChartItem(this.label, this.value);
 }
 
-const groupBarData = [
+const mockGroupBarData = [
   BarChartItem('Backend 36',  16330),
   BarChartItem('Frontend 28', 14740),
   BarChartItem('Kibxav 05',   12670),
@@ -52,10 +95,10 @@ const groupBarData = [
   BarChartItem('Frontend 31',  8280),
 ];
 
-// ─── Line Chart Data ──────────────────────────────────────────────────────────
+// ─── Line Chart Data (mock) ───────────────────────────────────────────────────
 
-const weekTrendData   = [1230, 1420, 1350, 1310, 1580, 1350, 1510];
-const weekTrendLabels = ['Dush','Sesh','Chor','Pay','Juma','Shan','Yak'];
+const mockWeekTrendData   = [1230, 1420, 1350, 1310, 1580, 1350, 1510];
+const mockWeekTrendLabels = ['Dush','Sesh','Chor','Pay','Juma','Shan','Yak'];
 
-const attendanceData   = [38,42,35,44,40,47,36,43,38,48,39,41,44,46];
-const attendanceLabels = ['28Y','30Y','1F','3F','5F','7F','10F','12F','14F','16F','18F','20F','22F','24F'];
+const mockAttendanceData   = [38,42,35,44,40,47,36,43,38,48,39,41,44,46];
+const mockAttendanceLabels = ['28Y','30Y','1F','3F','5F','7F','10F','12F','14F','16F','18F','20F','22F','24F'];

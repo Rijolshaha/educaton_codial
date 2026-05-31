@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
+import '../navigation/role_home.dart';
+import '../services/api_service.dart';
 import 'student/main_page.dart';
 import 'teacher/teacher_main_page.dart';
 import 'admin/admin_main_page.dart';
@@ -57,23 +59,18 @@ class _RegistrationPageState extends State<RegistrationPage>
     FocusScope.of(context).unfocus();
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
 
     final login    = _loginController.text.trim();
     final password = _passwordController.text;
 
-    Widget? destination;
+    final result = await ApiService().login(login, password);
+    if (!mounted) return;
 
-    if (login == 'student' && password == '1234') {
-      destination = const MainPage();
-    } else if (login == 'teacher' && password == '4321') {
-      destination = const TeacherMainPage();
-    } else if (login == 'admin' && password == '4432') {
-      destination = const AdminMainPage();
-    } else if (login == 'owner' && password == '0000') {
-      // ✅ Ega → OwnerMainPage
-      destination = const OwnerMainPage();
+    Widget? destination;
+    if (result.ok) {
+      destination = homeForRole(result.role);
+    } else {
+      destination = _offlineFallback(login, password);
     }
 
     if (destination != null) {
@@ -89,9 +86,18 @@ class _RegistrationPageState extends State<RegistrationPage>
     } else {
       setState(() {
         _isLoading    = false;
-        _errorMessage = "Login yoki parol noto'g'ri";
+        _errorMessage = result.message ?? "Login yoki parol noto'g'ri";
       });
     }
+  }
+
+  /// Backend ishlamasa — oflayn demo hisoblar.
+  Widget? _offlineFallback(String login, String password) {
+    if (login == 'student' && password == '1234') return const MainPage();
+    if (login == 'teacher' && password == '4321') return const TeacherMainPage();
+    if (login == 'admin' && password == '4432') return const AdminMainPage();
+    if (login == 'owner' && password == '0000') return const OwnerMainPage();
+    return null;
   }
 
   @override

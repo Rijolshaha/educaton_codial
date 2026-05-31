@@ -1,5 +1,14 @@
 // ─── Teacher Model ────────────────────────────────────────────────────────────
 
+const _dayLabels = {
+  'monday': 'Dushanba',
+  'tuesday': 'Seshanba',
+  'wednesday': 'Chorshanba',
+  'thursday': 'Payshanba',
+  'friday': 'Juma',
+  'saturday': 'Shanba',
+};
+
 class TeacherModel {
   final String id;
   final String name;
@@ -28,8 +37,29 @@ class TeacherModel {
   List<TeacherStudent> get topStudents {
     final all = groups.expand((g) => g.students).toList();
     all.sort((a, b) => b.totalCoins.compareTo(a.totalCoins));
-    return all;
+    return all.take(5).toList();
   }
+
+  /// Backend `lesson_days` → `Dushanba-Chorshanba-Juma` format.
+  static String scheduleFromDays(List<String> days) {
+    if (days.isEmpty) return 'Belgilanmagan';
+    final labels = days
+        .map((d) => _dayLabels[d.toLowerCase()] ?? d)
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (labels.isNotEmpty) return labels.join('-');
+    return 'Belgilanmagan';
+  }
+
+  /// API dan ma'lumot kelmasa — bo'sh holat (mock emas).
+  static TeacherModel empty({String? name, String? email, String? id}) =>
+      TeacherModel(
+        id: id ?? '',
+        name: name ?? 'Ustoz',
+        email: email ?? '',
+        avatarEmoji: '👨‍🏫',
+        groups: const [],
+      );
 
   static TeacherModel mock() => TeacherModel(
     id: 't1',
@@ -101,6 +131,7 @@ class TeacherStudent {
   final String avatarEmoji;
   final String groupName;
   final int totalCoins;
+  final String avatarUrl;
 
   const TeacherStudent({
     required this.id,
@@ -108,5 +139,6 @@ class TeacherStudent {
     required this.avatarEmoji,
     required this.groupName,
     required this.totalCoins,
+    this.avatarUrl = '',
   });
 }

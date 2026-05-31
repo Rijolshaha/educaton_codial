@@ -257,8 +257,8 @@ class _BookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = switch (book.status) {
-      BookStatus.tugatdi          => const Color(0xFF27AE60),
-      BookStatus.oqilyabdi        => const Color(0xFF3B82F6),
+      BookStatus.tugatdim         => const Color(0xFF27AE60),
+      BookStatus.oqiyapman        => const Color(0xFF3B82F6),
       BookStatus.rejalashtirilgan => const Color(0xFFF59E0B),
     };
 
@@ -360,7 +360,7 @@ class _BookCard extends StatelessWidget {
                           const Icon(Icons.calendar_month_outlined,
                               size: 13, color: Color(0xFF9CA3AF)),
                           const SizedBox(width: 4),
-                          Text('Boshlangan: ${book.startDate}',
+                          Text('Boshlangan: ${book.startDateLabel}',
                               style: const TextStyle(
                                   fontSize: 12, color: Color(0xFF6B7280))),
                         ],
@@ -374,7 +374,7 @@ class _BookCard extends StatelessWidget {
                             const Icon(Icons.calendar_month_outlined,
                                 size: 13, color: Color(0xFF9CA3AF)),
                             const SizedBox(width: 4),
-                            Text('Tugallangan: ${book.endDate}',
+                            Text('Tugallangan: ${book.endDateLabel}',
                                 style: const TextStyle(
                                     fontSize: 12, color: Color(0xFF6B7280))),
                           ],

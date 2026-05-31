@@ -4,7 +4,9 @@ import '../../../../models/kurs_model.dart';
 
 class KursFormDialog extends StatefulWidget {
   final KursModel? kurs;
-  final void Function(KursModel) onSave;
+
+  /// Saqlashni bajaradi (API). `true` qaytsa — dialog yopiladi.
+  final Future<bool> Function(KursModel) onSave;
 
   const KursFormDialog({
     super.key,
@@ -22,6 +24,7 @@ class _KursFormDialogState extends State<KursFormDialog> {
   late KursIconOption _belgi;
   late KursRangOption _rang;
   late KursStatus _status;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -41,11 +44,11 @@ class _KursFormDialogState extends State<KursFormDialog> {
     super.dispose();
   }
 
-  void _save() {
-    if (_nomiC.text.trim().isEmpty) return;
+  Future<void> _save() async {
+    if (_nomiC.text.trim().isEmpty || _saving) return;
     final k = widget.kurs;
-    widget.onSave(KursModel(
-      id: k?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+    final model = KursModel(
+      id: k?.id ?? '',
       nomi: _nomiC.text.trim(),
       tavsif: _tavsifC.text.trim(),
       belgi: _belgi,
@@ -54,8 +57,20 @@ class _KursFormDialogState extends State<KursFormDialog> {
       oqituvchilar: k?.oqituvchilar ?? 0,
       guruhlar: k?.guruhlar ?? 0,
       oquvchilar: k?.oquvchilar ?? 0,
-    ));
-    Navigator.pop(context);
+    );
+
+    setState(() => _saving = true);
+    final ok = await widget.onSave(model);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pop(context);
+    } else {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Saqlab bo\'lmadi. Qayta urinib ko\'ring.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   @override
@@ -217,20 +232,29 @@ class _KursFormDialogState extends State<KursFormDialog> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _save,
+                onPressed: _saving ? null : _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor:
+                      AppColors.primary.withOpacity(0.6),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                child: Text(
-                  isEdit ? 'Yopish' : 'Saqlash',
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700),
-                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        isEdit ? 'Saqlash' : "Qo'shish",
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
               ),
             ),
           ],

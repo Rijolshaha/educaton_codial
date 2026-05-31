@@ -5,6 +5,7 @@ import '../../../widgets/owner/adminlar/owner_admin_stat_card.dart';
 import '../../../widgets/owner/adminlar/owner_admin_card.dart';
 import '../../../widgets/owner/adminlar/owner_admin_form_dialog.dart';
 import '../../../widgets/owner/adminlar/owner_admin_confirm_dialog.dart';
+import '../../../services/owner_service.dart';
 import '../../models/owner_admin_model.dart';
 
 class OwnerAdminlarPage extends StatefulWidget {
@@ -15,56 +16,96 @@ class OwnerAdminlarPage extends StatefulWidget {
 }
 
 class _OwnerAdminlarPageState extends State<OwnerAdminlarPage> {
-  List<OwnerAdminModel> _adminlar = mockOwnerAdminlar();
+  final OwnerService _service = OwnerService();
+  List<OwnerAdminModel> _adminlar = [];
+  bool _loading = true;
 
   int get _faolCount   => _adminlar.where((a) => a.isFaol).length;
   int get _nofaolCount => _adminlar.where((a) => !a.isFaol).length;
 
-  void _toggleStatus(OwnerAdminModel admin) {
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final list = await _service.fetchAdmins();
+    if (!mounted) return;
+    setState(() {
+      _adminlar = list;
+      _loading = false;
+    });
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? AppColors.red : const Color(0xFF059669),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+    ));
+  }
+
+  Future<void> _toggleStatus(OwnerAdminModel admin) async {
+    final newStatus =
+        admin.isFaol ? OwnerAdminStatus.nofaol : OwnerAdminStatus.faol;
+    final ok = await _service.setStatus(admin.id, newStatus);
+    if (!mounted) return;
+    if (!ok) {
+      _snack("Holatni o'zgartirib bo'lmadi", error: true);
+      return;
+    }
     setState(() {
       final idx = _adminlar.indexOf(admin);
-      _adminlar[idx] = admin.copyWith(
-        status: admin.isFaol
-            ? OwnerAdminStatus.nofaol
-            : OwnerAdminStatus.faol,
-      );
+      if (idx != -1) _adminlar[idx] = admin.copyWith(status: newStatus);
     });
   }
 
   Future<void> _showAddDialog() async {
-    final result = await showDialog<Map<String, String>>(
+    final result = await showDialog<OwnerAdminFormResult>(
       context: context,
       builder: (_) => const OwnerAdminFormDialog(),
     );
     if (result == null) return;
-    setState(() {
-      _adminlar.add(OwnerAdminModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        ism: result['ism']!,
-        email: result['email']!,
-        avatarEmoji: '🧑‍💼',
-        avatarColor: AppColors.primary,
-        lavozim: result['lavozim'] ?? '',
-        yaratilgan: DateTime.now().toString().substring(0, 10),
-        status: OwnerAdminStatus.faol,
-      ));
-    });
+    final ok = await _service.createAdmin(
+      username: result.username,
+      password: result.password,
+      email: result.email,
+      lavozim: result.lavozim,
+      avatar: result.avatar,
+    );
+    if (!mounted) return;
+    if (!ok) {
+      _snack("Admin qo'shilmadi", error: true);
+      return;
+    }
+    _snack("Admin qo'shildi ✅");
+    await _load(); // yangi admin id'si server'dan keladi
   }
 
   Future<void> _showEditDialog(OwnerAdminModel admin) async {
-    final result = await showDialog<Map<String, String>>(
+    final result = await showDialog<OwnerAdminFormResult>(
       context: context,
       builder: (_) => OwnerAdminFormDialog(admin: admin),
     );
     if (result == null) return;
-    setState(() {
-      final idx = _adminlar.indexOf(admin);
-      _adminlar[idx] = admin.copyWith(
-        ism: result['ism'],
-        email: result['email'],
-        lavozim: result['lavozim'],
-      );
-    });
+    final ok = await _service.updateAdmin(
+      admin.id,
+      ism: result.ism,
+      email: result.email,
+      lavozim: result.lavozim,
+      avatar: result.avatar,
+    );
+    if (!mounted) return;
+    if (!ok) {
+      _snack("Tahrirlab bo'lmadi", error: true);
+      return;
+    }
+    _snack("O'zgarishlar saqlandi ✅");
+    await _load(); // yangilangan ma'lumot (avatar URL) server'dan keladi
   }
 
   Future<void> _showDeleteDialog(OwnerAdminModel admin) async {
@@ -72,7 +113,15 @@ class _OwnerAdminlarPageState extends State<OwnerAdminlarPage> {
       context: context,
       builder: (_) => OwnerAdminConfirmDialog(admin: admin),
     );
-    if (confirmed == true) setState(() => _adminlar.remove(admin));
+    if (confirmed != true) return;
+    final ok = await _service.deleteAdmin(admin.id);
+    if (!mounted) return;
+    if (!ok) {
+      _snack("O'chirib bo'lmadi", error: true);
+      return;
+    }
+    setState(() => _adminlar.remove(admin));
+    _snack("Admin o'chirildi");
   }
 
   @override
@@ -102,7 +151,9 @@ class _OwnerAdminlarPageState extends State<OwnerAdminlarPage> {
           child: Divider(height: 1, color: Color(0xFFF3F4F6)),
         ),
       ),
-      body: CustomScrollView(
+      body: _loading
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
             child: Padding(

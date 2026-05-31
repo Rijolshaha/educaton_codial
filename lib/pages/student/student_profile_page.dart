@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
+import '../../../models/dashboard_model.dart';
 import '../../../models/student_model.dart';
+import '../../../services/student_service.dart';
 
 // ─── Level model ──────────────────────────────────────────────────────────────
 
@@ -45,12 +47,14 @@ class StudentProfilePage extends StatefulWidget {
 }
 
 class _StudentProfilePageState extends State<StudentProfilePage> {
-  late String _bio;
+  String _bio = '';
+  Future<List<GroupItem>> _groupsFuture = Future.value(const []);
 
   @override
   void initState() {
     super.initState();
-    _bio = 'Backend dasturlashga qiziqaman';
+    _bio = widget.student.bio;
+    _groupsFuture = StudentService().fetchStudentGroups(widget.student);
   }
 
   void _editBio() {
@@ -116,9 +120,24 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  setState(() => _bio = controller.text.trim());
+                onPressed: () async {
+                  final text = controller.text.trim();
                   Navigator.pop(ctx);
+                  final ok = await StudentService().updateBio(
+                    '${widget.student.id}',
+                    text,
+                  );
+                  if (!mounted) return;
+                  if (ok) {
+                    setState(() => _bio = text);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Bio saqlanmadi'),
+                        backgroundColor: AppColors.red,
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.blue1,
@@ -156,6 +175,60 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     final lvl = _currentLevelData;
     if (lvl.maxCoins == null) return 0;
     return lvl.maxCoins! - widget.student.coins;
+  }
+
+  Widget _buildGroupCard(GroupItem group) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F4FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  group.name,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Ustoz: ${group.teacher}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (group.schedule.isNotEmpty && group.schedule != '—')
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.blue1.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                group.schedule,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.blue1,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -427,49 +500,51 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                               color: AppColors.textPrimary,
                             )),
                         const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F4FF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(student.group,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppColors.textPrimary,
-                                        )),
-                                    const SizedBox(height: 3),
-                                    const Text('Ustoz: Otabek Tursunov',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: AppColors.textSecondary,
-                                        )),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: AppColors.blue1.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text('Dush-Chor-Juma',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                        FutureBuilder<List<GroupItem>>(
+                          future: _groupsFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                       color: AppColors.blue1,
-                                    )),
-                              ),
-                            ],
-                          ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final groups = snapshot.data ?? const [];
+                            if (groups.isEmpty) {
+                              return Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE8F4FF),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  student.group.isEmpty
+                                      ? 'Guruh biriktirilmagan'
+                                      : student.group,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return Column(
+                              children: groups.map(_buildGroupCard).toList(),
+                            );
+                          },
                         ),
                       ],
                     ),

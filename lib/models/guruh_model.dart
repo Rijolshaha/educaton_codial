@@ -12,8 +12,10 @@ class AdminGuruh {
   final String id;
   final String nomi;
   final String yaratilganSana;
-  final String ustoz;
-  final String kurs;
+  final String ustoz;      // mentor.user.username (ko'rsatish)
+  final String? mentorId;  // backend mentor_id
+  final String kurs;       // course.name (ko'rsatish)
+  final String courseId;   // backend course_id
   final JadvalTuri jadval;
   final GuruhStatus status;
   final int oquvchilar;
@@ -23,7 +25,9 @@ class AdminGuruh {
     required this.nomi,
     required this.yaratilganSana,
     required this.ustoz,
+    this.mentorId,
     required this.kurs,
+    this.courseId = '',
     required this.jadval,
     required this.status,
     required this.oquvchilar,
@@ -33,7 +37,9 @@ class AdminGuruh {
     String? nomi,
     String? yaratilganSana,
     String? ustoz,
+    String? mentorId,
     String? kurs,
+    String? courseId,
     JadvalTuri? jadval,
     GuruhStatus? status,
     int? oquvchilar,
@@ -43,7 +49,9 @@ class AdminGuruh {
         nomi: nomi ?? this.nomi,
         yaratilganSana: yaratilganSana ?? this.yaratilganSana,
         ustoz: ustoz ?? this.ustoz,
+        mentorId: mentorId ?? this.mentorId,
         kurs: kurs ?? this.kurs,
+        courseId: courseId ?? this.courseId,
         jadval: jadval ?? this.jadval,
         status: status ?? this.status,
         oquvchilar: oquvchilar ?? this.oquvchilar,
@@ -52,7 +60,60 @@ class AdminGuruh {
   String get jadvalLabel  => jadval == JadvalTuri.jadvalA ? 'Jadval A' : 'Jadval B';
   String get jadvalKunlar => jadval == JadvalTuri.jadvalA ? 'Du-Ch-Ju' : 'Se-Pa-Sh';
   String get statusLabel  => status == GuruhStatus.faol ? 'Faol' : 'Faol emas';
+
+  // ── JSON ──────────────────────────────────────────────────────────────────
+
+  /// Backend `Group` shakli:
+  /// `{id, name, active, created_at, lesson_days:[...],
+  ///   course:{id,name}, mentor:{id,user:{username}}, student_count}`
+  factory AdminGuruh.fromJson(Map<String, dynamic> json) {
+    int asInt(dynamic v) =>
+        v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+
+    final course = json['course'] as Map<String, dynamic>?;
+    final mentor = json['mentor'] as Map<String, dynamic>?;
+    final mentorUser = mentor?['user'] as Map<String, dynamic>?;
+
+    var created = (json['created_at'] ?? '').toString();
+    if (created.length >= 10) created = created.substring(0, 10);
+
+    final days = ((json['lesson_days'] as List?) ?? const [])
+        .map((e) => e.toString().toLowerCase())
+        .toList();
+
+    return AdminGuruh(
+      id: (json['id'] ?? '').toString(),
+      nomi: (json['name'] ?? '').toString(),
+      yaratilganSana: created,
+      ustoz: (mentorUser?['username'] ?? '').toString(),
+      mentorId: mentor?['id']?.toString(),
+      kurs: (course?['name'] ?? '').toString(),
+      courseId: course?['id']?.toString() ?? '',
+      jadval: jadvalFromDays(days),
+      status:
+          (json['active'] == false) ? GuruhStatus.faolEmas : GuruhStatus.faol,
+      oquvchilar: asInt(json['student_count']),
+    );
+  }
 }
+
+// ─── Jadval ↔ lesson_days ──────────────────────────────────────────────────────
+
+/// Jadval A → Du-Ch-Ju, Jadval B → Se-Pa-Sh.
+const List<String> _jadvalADays = ['monday', 'wednesday', 'friday'];
+const List<String> _jadvalBDays = ['tuesday', 'thursday', 'saturday'];
+
+JadvalTuri jadvalFromDays(List<String> days) {
+  if (days.contains('tuesday') ||
+      days.contains('thursday') ||
+      days.contains('saturday')) {
+    return JadvalTuri.jadvalB;
+  }
+  return JadvalTuri.jadvalA;
+}
+
+List<String> daysFromJadval(JadvalTuri jadval) =>
+    jadval == JadvalTuri.jadvalA ? _jadvalADays : _jadvalBDays;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

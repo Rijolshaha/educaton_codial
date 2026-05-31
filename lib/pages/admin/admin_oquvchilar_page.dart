@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
 import '../../../models/student_model.dart';
+import '../../../services/student_service.dart';
+import '../../../services/group_service.dart';
 import '../../../widgets/admin/oquvchilar/oquvchi_stat_card.dart';
 import '../../../widgets/admin/oquvchilar/oquvchi_card.dart';
 import '../../../widgets/admin/oquvchilar/oquvchi_detail_dialog.dart';
@@ -17,7 +19,13 @@ class AdminOquvchilarPage extends StatefulWidget {
 }
 
 class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
-  late List<StudentModel> _students;
+  final _service = StudentService();
+  List<StudentModel> _students = const [];
+  bool _loading = true;
+
+  // Guruh nomi → ustoz (real guruhlardan).
+  Map<String, String> _guruhUstozMap = const {};
+
   final _searchCtrl = TextEditingController();
   String? _filterUstoz;
   String? _filterGuruh;
@@ -25,8 +33,8 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
   @override
   void initState() {
     super.initState();
-    _students = List.from(studentsHaftalik);
     _searchCtrl.addListener(() => setState(() {}));
+    _load();
   }
 
   @override
@@ -35,24 +43,52 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
     super.dispose();
   }
 
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final groups = await GroupService().fetchGroups();
+    final students = await _service.fetchStudents();
+    if (!mounted) return;
+    setState(() {
+      _guruhUstozMap = {
+        for (final g in groups)
+          if (g.nomi.isNotEmpty) g.nomi: g.ustoz,
+      };
+      _students = students;
+      _loading = false;
+    });
+  }
+
   // ── Computed ───────────────────────────────────────────────────────────────
+
+  List<String> get _ustozOptions {
+    final set = _guruhUstozMap.values.where((e) => e.isNotEmpty).toSet();
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  List<String> get _guruhOptions {
+    final set = _students
+        .map((s) => s.group)
+        .where((g) => g.isNotEmpty)
+        .toSet();
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  String? _ustozFor(StudentModel s) => _guruhUstozMap[s.group];
 
   List<StudentModel> get _filtered {
     return _students.where((s) {
-      // Search
       final q = _searchCtrl.text.toLowerCase();
       if (q.isNotEmpty &&
           !s.name.toLowerCase().contains(q) &&
           !s.email.toLowerCase().contains(q) &&
           !s.group.toLowerCase().contains(q)) return false;
 
-      // Ustoz filter — guruh orqali
-      if (_filterUstoz != null) {
-        final ustoz = guruhUstozMap[s.group];
-        if (ustoz != _filterUstoz) return false;
+      if (_filterUstoz != null && _ustozFor(s) != _filterUstoz) {
+        return false;
       }
 
-      // Guruh filter
       if (_filterGuruh != null && s.group != _filterGuruh) {
         return false;
       }
@@ -77,7 +113,7 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
 
   void _viewStudent(StudentModel s) => showDialog(
     context: context,
-    builder: (_) => OquvchiDetailDialog(student: s),
+    builder: (_) => OquvchiDetailDialog(student: s, ustoz: _ustozFor(s)),
   );
 
   void _addStudent() => _openForm();
@@ -88,8 +124,16 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
     builder: (_) => OquvchiConfirmDialog(
       title: "O'quvchini o'chirish",
       message: "'${s.name}' ni o'chirishni xohlaysizmi?",
-      onConfirm: () => setState(
-              () => _students.removeWhere((e) => e.id == s.id)),
+      onConfirm: () async {
+        final ok = await _service.deleteStudent('${s.id}');
+        if (!mounted) return;
+        if (ok) {
+          setState(() => _students.removeWhere((e) => e.id == s.id));
+          _snack("O'quvchi o'chirildi");
+        } else {
+          _snack("O'chirishda xatolik", err: true);
+        }
+      },
     ),
   );
 
@@ -97,17 +141,53 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
     context: context,
     builder: (_) => OquvchiFormDialog(
       student: student,
-      onSave: (saved) => setState(() {
+      onSave: (r) async {
+        final bool ok;
         if (student == null) {
-          _students.insert(0, saved);
+          ok = await _service.createStudent(
+            username: r.username,
+            password: r.password,
+            email: r.email,
+            firstName: r.firstName,
+            lastName: r.lastName,
+            phone: r.phone,
+            bio: r.bio,
+            point: r.point,
+            groupId: r.groupId,
+            image: r.image,
+          );
         } else {
-          final i =
-          _students.indexWhere((e) => e.id == saved.id);
-          if (i != -1) _students[i] = saved;
+          ok = await _service.updateStudent(
+            '${student.id}',
+            firstName: r.firstName,
+            lastName: r.lastName,
+            phone: r.phone,
+            bio: r.bio,
+            point: r.point,
+            groupId: r.groupId,
+            image: r.image,
+          );
         }
-      }),
+        if (ok && mounted) {
+          await _load();
+          _snack(student == null
+              ? "O'quvchi qo'shildi"
+              : "O'quvchi yangilandi");
+        }
+        return ok;
+      },
     ),
   );
+
+  void _snack(String m, {bool err = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(m),
+        backgroundColor: err ? AppColors.red : AppColors.greenDark,
+      ),
+    );
+  }
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -118,8 +198,11 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
             SliverToBoxAdapter(
               child: Padding(
                 padding:
@@ -223,7 +306,7 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
                       icon: Icons.tune_rounded,
                       hint: 'Barcha ustozlar',
                       value: _filterUstoz,
-                      items: allOquvchiUstozlar,
+                      items: _ustozOptions,
                       labelBuilder: (v) => v,
                       onChanged: (v) => setState(() {
                         _filterUstoz = v;
@@ -239,12 +322,11 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
                       hint: 'Barcha guruhlar',
                       value: _filterGuruh,
                       items: _filterUstoz != null
-                          ? allOquvchiGuruhlar
-                          .where((g) =>
-                      guruhUstozMap[g] ==
-                          _filterUstoz)
-                          .toList()
-                          : allOquvchiGuruhlar,
+                          ? _guruhOptions
+                              .where((g) =>
+                                  _guruhUstozMap[g] == _filterUstoz)
+                              .toList()
+                          : _guruhOptions,
                       labelBuilder: (v) => v,
                       onChanged: (v) =>
                           setState(() => _filterGuruh = v),
@@ -266,7 +348,14 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
             ),
 
             // ── Student cards ──
-            list.isEmpty
+            _loading
+                ? const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 60),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  )
+                : list.isEmpty
                 ? SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.only(top: 60),
@@ -341,6 +430,7 @@ class _AdminOquvchilarPageState extends State<AdminOquvchilarPage> {
             const SliverToBoxAdapter(
                 child: SizedBox(height: 80)),
           ],
+          ),
         ),
       ),
     );

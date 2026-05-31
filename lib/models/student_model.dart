@@ -1,40 +1,8 @@
-// ─── BookStatus enum ─────────────────────────────────────────────────────────
-
-enum BookStatus {
-  tugatdi,
-  oqilyabdi,
-  rejalashtirilgan;
-
-  String get label {
-    switch (this) {
-      case BookStatus.tugatdi:          return "Tugatdi";
-      case BookStatus.oqilyabdi:        return "O'qilyabdi";
-      case BookStatus.rejalashtirilgan: return "Rejalashtirilgan";
-    }
-  }
-}
-
-// ─── BookModel ───────────────────────────────────────────────────────────────
-
-class BookModel {
-  final int    id;
-  final String title;
-  final String author;
-  final String startDate;   // "yyyy-MM-dd" formatida String
-  final String? endDate;    // tugamagan bo'lsa null
-  final BookStatus status;
-  final String summary;
-
-  const BookModel({
-    required this.id,
-    required this.title,
-    required this.author,
-    required this.startDate,
-    this.endDate,
-    required this.status,
-    required this.summary,
-  });
-}
+// BookModel/BookStatus endi yagona models/book_model.dart faylida.
+// Re-export — StudentModel import qilgan joylar BookModel'dan ham foydalana oladi.
+import 'book_model.dart';
+import '../services/config/api_config.dart';
+export 'book_model.dart';
 
 // ─── StudentModel ─────────────────────────────────────────────────────────────
 
@@ -43,25 +11,129 @@ class StudentModel {
   final int    rank;
   final String name;
   final String group;
+  final String groupId;       // backend group id (yangilash uchun)
   final int    coins;
   final int    gain;
   final String email;
+  final String phone;
+  final String bio;
+  final String username;
+  final int    bookCount;
   final List<BookModel> books;
   final String avatarColor;   // "#RRGGBB"
   final String avatarEmoji;
+  final String? avatarUrl;    // backend `image` (rasm URL)
 
   const StudentModel({
     required this.id,
     required this.rank,
     required this.name,
     required this.group,
+    this.groupId = '',
     required this.coins,
     required this.gain,
     required this.email,
+    this.phone = '',
+    this.bio = '',
+    this.username = '',
+    this.bookCount = 0,
     this.books = const [],
     required this.avatarColor,
     required this.avatarEmoji,
+    this.avatarUrl,
   });
+
+  /// Backend `Student` shakli:
+  /// `{id, user:{username,email}, groups:[...], first_name, last_name,
+  ///   image, bio, point, rank, phone_number, book_count}`
+  factory StudentModel.fromJson(
+    Map<String, dynamic> json, {
+    Map<String, String>? groupNames,
+  }) {
+    int asInt(dynamic v) =>
+        v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+
+    final user = json['user'] as Map<String, dynamic>?;
+    final username = (user?['username'] ?? '').toString();
+    final fn = (json['first_name'] ?? '').toString().trim();
+    final ln = (json['last_name'] ?? '').toString().trim();
+    var name = '$fn $ln'.trim();
+    if (name.isEmpty) name = username.isEmpty ? "O'quvchi" : username;
+
+    // Guruh — id va nom.
+    final rawGroups = (json['groups'] as List?) ?? const [];
+    String groupId = '';
+    String groupName = '';
+    if (rawGroups.isNotEmpty) {
+      final g = rawGroups.first;
+      if (g is Map) {
+        groupId = (g['id'] ?? '').toString();
+        groupName = (g['name'] ?? '').toString();
+      } else {
+        groupId = g.toString();
+      }
+    }
+    if (groupName.isEmpty && groupNames != null) {
+      groupName = groupNames[groupId] ?? '';
+    }
+
+    final image = (json['image'] ?? '').toString();
+    final id = asInt(json['id']);
+
+    return StudentModel(
+      id: id,
+      rank: asInt(json['rank']),
+      name: name,
+      group: groupName,
+      groupId: groupId,
+      coins: asInt(json['point']),
+      gain: 0,
+      email: (user?['email'] ?? '').toString(),
+      phone: (json['phone_number'] ?? '').toString(),
+      bio: (json['bio'] ?? '').toString(),
+      username: username,
+      bookCount: asInt(json['book_count']),
+      avatarColor: _palette[id % _palette.length],
+      avatarEmoji: '🧑',
+      avatarUrl: image.isEmpty ? null : ApiConfig.absoluteUrl(image),
+    );
+  }
+
+  StudentModel copyWith({
+    String? name,
+    String? group,
+    String? groupId,
+    int? coins,
+    String? email,
+    String? phone,
+    String? bio,
+    String? avatarColor,
+    String? avatarEmoji,
+    String? avatarUrl,
+  }) =>
+      StudentModel(
+        id: id,
+        rank: rank,
+        name: name ?? this.name,
+        group: group ?? this.group,
+        groupId: groupId ?? this.groupId,
+        coins: coins ?? this.coins,
+        gain: gain,
+        email: email ?? this.email,
+        phone: phone ?? this.phone,
+        bio: bio ?? this.bio,
+        username: username,
+        bookCount: bookCount,
+        books: books,
+        avatarColor: avatarColor ?? this.avatarColor,
+        avatarEmoji: avatarEmoji ?? this.avatarEmoji,
+        avatarUrl: avatarUrl ?? this.avatarUrl,
+      );
+
+  static const List<String> _palette = [
+    '#4ECDC4', '#FF6B6B', '#F0B27A', '#BB8FCE',
+    '#45B7D1', '#96CEB4', '#F7DC6F', '#82E0AA',
+  ];
 }
 
 // ─── GroupModel ───────────────────────────────────────────────────────────────
@@ -90,12 +162,13 @@ class GroupModel {
 
 // ─── Students — Haftalik ──────────────────────────────────────────────────────
 
-const List<StudentModel> studentsHaftalik = [
+// `final` (const emas) — kitob sanasi DateTime(...) const konstruktor emas.
+final List<StudentModel> studentsHaftalik = [
   StudentModel(id: 1,  rank: 1,  name: "Abbos Qodirov",        group: "Kiberxavfsizlik 05", coins: 3450, gain: 350, email: "abbos@codial.uz",        avatarColor: "#4ECDC4", avatarEmoji: "👩",
     books: [
-      BookModel(id: 1, title: "The Art of Deception", author: "Kevin Mitnick",
-          startDate: "2026-01-20", endDate: "2026-02-10",
-          status: BookStatus.tugatdi,
+      BookModel(id: '1', title: "The Art of Deception", author: "Kevin Mitnick",
+          startDate: DateTime(2026, 1, 20), endDate: DateTime(2026, 2, 10),
+          status: BookStatus.tugatdim,
           summary: "Mashhur xaker Kevin Mitnick tomonidan yozilgan ijtimoiy injiniring va xavfsizlik haqida kitob."),
     ],
   ),

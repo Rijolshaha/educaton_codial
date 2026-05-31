@@ -1,89 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../constants/app_colors.dart';
-
-// ─── Model ────────────────────────────────────────────────────────────────────
-
-class NewsItem {
-  final int id;
-  String title;
-  String body;
-  String author;
-  String role;
-  String date;
-  bool isPinned;
-  String? imageUrl;
-
-  NewsItem({
-    required this.id,
-    required this.title,
-    required this.body,
-    required this.author,
-    required this.role,
-    required this.date,
-    this.isPinned = false,
-    this.imageUrl,
-  });
-}
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-List<NewsItem> _buildMockNews() => [
-  NewsItem(
-    id: 1,
-    title: 'CODIAL platformasi ishga tushirildi!',
-    body: "Hurmatli o'quvchi va ustozlar! Sizlarni yangi gamifikatsiya platformamiz - CODIAL ishga tushirilganligi bilan tabriklaymiz! Endi o'qish yanada qiziqarli bo'ladi.",
-    author: 'Muhammadamin Naziraliyev',
-    role: 'Ega',
-    date: '2026 M02 1 10:00',
-    isPinned: true,
-    imageUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80',
-  ),
-  NewsItem(
-    id: 2,
-    title: 'Leaderboardda yangi rekord!',
-    body: "Tabriklaymiz Hasanali Turdialiyev! U platformada birinchi marta 3000+ coin to'plab, yangi rekord o'rnatdi. Siz ham harakat qiling!",
-    author: 'Dilyora Tursunova',
-    role: 'Admin',
-    date: '2026 M02 10 09:15',
-  ),
-  NewsItem(
-    id: 3,
-    title: "Dam olish kunlari e'lon qilinadi",
-    body: "Hurmatli o'quvchilar! Navro'z bayramiga tayyorgarlik ko'rilmoqda. 19-22 mart kunlari dam olish kunlari deb e'lon qilinadi.",
-    author: 'Robiya Anvarova',
-    role: 'Admin',
-    date: '2026 M02 9 12:00',
-  ),
-  NewsItem(
-    id: 4,
-    title: "Yangi kurslar qo'shildi",
-    body: "Platformamizga yana yangi kurslar qo'shilmoqda! Tez orada Grafik Dizayn va SMM & Marketing kurslari ham bo'ladi. Kuzatib boring!",
-    author: 'Ilhomjon Ibragimov',
-    role: 'Admin',
-    date: '2026 M02 8 11:00',
-  ),
-  NewsItem(
-    id: 5,
-    title: "Fevral oyining mega auksioni!",
-    body: "Diqqat! Fevral oyining eng katta auksioni 28-fevralda soat 15:00 da bo'lib o'tadi. MacBook Air M2, iPhone 15 Pro va boshqa sovg'alar sizni kutmoqda!",
-    author: 'Robiya Anvarova',
-    role: 'Admin',
-    date: '2026 M02 5 14:30',
-    isPinned: true,
-  ),
-  NewsItem(
-    id: 6,
-    title: "Kitob o'qish coinlari oshirildi",
-    body: "Yaxshi xabar! Endi kitob o'qib, tahlil yozganlar uchun coin miqdori 70 dan 100 ga ko'tarildi. Bu sizning bilimingizni baholashning yangi usuli!",
-    author: 'Muhammadamin Naziraliyev',
-    role: 'Ega',
-    date: '2026 M02 6 16:00',
-  ),
-];
+import '../models/news_model.dart';
+import '../services/news_service.dart';
 
 // ─── Role enum ────────────────────────────────────────────────────────────────
 
-enum NewsPageRole { student, admin }
+enum NewsPageRole { student, admin, owner }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -97,15 +21,38 @@ class NewsPage extends StatefulWidget {
 
 class _NewsPageState extends State<NewsPage> {
   final _searchController = TextEditingController();
+  final _service = NewsService();
   String _query = '';
-  late List<NewsItem> _news;
+  List<NewsItem> _news = const [];
+  bool _loading = true;
 
-  bool get _isAdmin => widget.pageRole == NewsPageRole.admin;
+  bool get _canEdit =>
+      widget.pageRole == NewsPageRole.admin ||
+      widget.pageRole == NewsPageRole.owner;
 
   @override
   void initState() {
     super.initState();
-    _news = _buildMockNews();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
+    final list = await _service.fetchNews();
+    if (!mounted) return;
+    setState(() {
+      _news = list;
+      _loading = false;
+    });
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? AppColors.red : const Color(0xFF059669),
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   List<NewsItem> get _filtered {
@@ -132,7 +79,7 @@ class _NewsPageState extends State<NewsPage> {
     super.dispose();
   }
 
-  // ── Admin actions ──────────────────────────────────────────────────────────
+  // ── Admin / Owner actions (API) ──────────────────────────────────────────────
 
   void _openAddDialog() {
     showModalBottomSheet(
@@ -141,9 +88,16 @@ class _NewsPageState extends State<NewsPage> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _NewsEditSheet(
-        onSave: (item) => setState(() => _news.insert(0, item)),
+        onSubmit: ({required title, required body, required pin, image}) =>
+            _service.createNews(
+                title: title, description: body, pin: pin, image: image),
       ),
-    );
+    ).then((ok) {
+      if (ok == true) {
+        _snack("Yangilik qo'shildi");
+        _load();
+      }
+    });
   }
 
   void _openEditDialog(NewsItem item) {
@@ -154,12 +108,20 @@ class _NewsPageState extends State<NewsPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => _NewsEditSheet(
         existing: item,
-        onSave: (updated) => setState(() {
-          final i = _news.indexWhere((n) => n.id == updated.id);
-          if (i != -1) _news[i] = updated;
-        }),
+        onSubmit: ({required title, required body, required pin, image}) =>
+            _service.updateNews(
+                id: item.id,
+                title: title,
+                description: body,
+                pin: pin,
+                image: image),
       ),
-    );
+    ).then((ok) {
+      if (ok == true) {
+        _snack('Yangilik saqlandi');
+        _load();
+      }
+    });
   }
 
   void _deleteItem(NewsItem item) {
@@ -167,13 +129,26 @@ class _NewsPageState extends State<NewsPage> {
       context: context,
       builder: (_) => _DeleteDialog(
         title: item.title,
-        onConfirm: () => setState(() => _news.removeWhere((n) => n.id == item.id)),
+        onConfirm: () async {
+          final ok = await _service.deleteNews(item.id);
+          if (ok) {
+            _snack("Yangilik o'chirildi");
+            _load();
+          } else {
+            _snack("O'chirishda xatolik", error: true);
+          }
+        },
       ),
     );
   }
 
-  void _togglePin(NewsItem item) {
-    setState(() => item.isPinned = !item.isPinned);
+  Future<void> _togglePin(NewsItem item) async {
+    final ok = await _service.setPin(item.id, !item.isPinned);
+    if (ok) {
+      setState(() => item.isPinned = !item.isPinned);
+    } else {
+      _snack('Pin holatini o\'zgartirib bo\'lmadi', error: true);
+    }
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -206,8 +181,8 @@ class _NewsPageState extends State<NewsPage> {
                       )),
                   const SizedBox(height: 14),
 
-                  // Admin: "Yangilik qo'shish" button
-                  if (_isAdmin) ...[
+                  // Admin/Owner: "Yangilik qo'shish" button
+                  if (_canEdit) ...[
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -282,37 +257,59 @@ class _NewsPageState extends State<NewsPage> {
 
             // ── List ──
             Expanded(
-              child: _filtered.isEmpty
+              child: _loading
                   ? const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('🔍', style: TextStyle(fontSize: 48)),
-                    SizedBox(height: 12),
-                    Text('Hech narsa topilmadi',
-                        style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 15)),
-                  ],
-                ),
-              )
-                  : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                itemCount: _filtered.length,
-                separatorBuilder: (_, __) =>
-                const SizedBox(height: 12),
-                itemBuilder: (ctx, i) {
-                  final item = _filtered[i];
-                  return _isAdmin
-                      ? _AdminNewsCard(
-                    item: item,
-                    onEdit: () => _openEditDialog(item),
-                    onDelete: () => _deleteItem(item),
-                    onTogglePin: () => _togglePin(item),
-                  )
-                      : _StudentNewsCard(item: item);
-                },
-              ),
+                      child: CircularProgressIndicator(
+                          color: AppColors.primary))
+                  : RefreshIndicator(
+                      color: AppColors.primary,
+                      onRefresh: _load,
+                      child: _filtered.isEmpty
+                          ? ListView(
+                              physics:
+                                  const AlwaysScrollableScrollPhysics(),
+                              children: const [
+                                SizedBox(height: 80),
+                                Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('🔍',
+                                          style: TextStyle(fontSize: 48)),
+                                      SizedBox(height: 12),
+                                      Text('Hech narsa topilmadi',
+                                          style: TextStyle(
+                                              color:
+                                                  AppColors.textSecondary,
+                                              fontSize: 15)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              physics:
+                                  const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(
+                                  20, 0, 20, 24),
+                              itemCount: _filtered.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (ctx, i) {
+                                final item = _filtered[i];
+                                return _canEdit
+                                    ? _AdminNewsCard(
+                                        item: item,
+                                        onEdit: () =>
+                                            _openEditDialog(item),
+                                        onDelete: () => _deleteItem(item),
+                                        onTogglePin: () =>
+                                            _togglePin(item),
+                                      )
+                                    : _StudentNewsCard(item: item);
+                              },
+                            ),
+                    ),
             ),
           ],
         ),
@@ -688,11 +685,18 @@ Widget _imageFallback() => Container(
 
 // ─── Add / Edit Bottom Sheet ──────────────────────────────────────────────────
 
+typedef NewsSubmit = Future<bool> Function({
+  required String title,
+  required String body,
+  required bool pin,
+  File? image,
+});
+
 class _NewsEditSheet extends StatefulWidget {
   final NewsItem? existing;
-  final void Function(NewsItem) onSave;
+  final NewsSubmit onSubmit;
 
-  const _NewsEditSheet({this.existing, required this.onSave});
+  const _NewsEditSheet({this.existing, required this.onSubmit});
 
   @override
   State<_NewsEditSheet> createState() => _NewsEditSheetState();
@@ -702,8 +706,10 @@ class _NewsEditSheetState extends State<_NewsEditSheet> {
   final _formKey  = GlobalKey<FormState>();
   late TextEditingController _titleC;
   late TextEditingController _bodyC;
-  late TextEditingController _imageC;
   late bool _isPinned;
+
+  File? _pickedImage;
+  bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
 
@@ -713,7 +719,6 @@ class _NewsEditSheetState extends State<_NewsEditSheet> {
     final e = widget.existing;
     _titleC   = TextEditingController(text: e?.title ?? '');
     _bodyC    = TextEditingController(text: e?.body ?? '');
-    _imageC   = TextEditingController(text: e?.imageUrl ?? '');
     _isPinned = e?.isPinned ?? false;
   }
 
@@ -721,30 +726,49 @@ class _NewsEditSheetState extends State<_NewsEditSheet> {
   void dispose() {
     _titleC.dispose();
     _bodyC.dispose();
-    _imageC.dispose();
     super.dispose();
   }
 
-  void _save() {
-    if (!_formKey.currentState!.validate()) return;
-    final e    = widget.existing;
-    final item = NewsItem(
-      id:       e?.id ?? DateTime.now().millisecondsSinceEpoch,
-      title:    _titleC.text.trim(),
-      body:     _bodyC.text.trim(),
-      author:   e?.author ?? 'Admin',
-      role:     e?.role ?? 'Admin',
-      date:     e?.date ?? _nowDate(),
-      isPinned: _isPinned,
-      imageUrl: _imageC.text.trim().isEmpty ? null : _imageC.text.trim(),
-    );
-    widget.onSave(item);
-    Navigator.pop(context);
+  Future<void> _pickImage() async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+      if (picked != null) {
+        setState(() => _pickedImage = File(picked.path));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Rasm tanlab bo\'lmadi'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
   }
 
-  String _nowDate() {
-    final d = DateTime.now();
-    return '${d.day}.${d.month.toString().padLeft(2,'0')}.${d.year}';
+  Future<void> _save() async {
+    if (_saving) return;
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final ok = await widget.onSubmit(
+      title: _titleC.text.trim(),
+      body: _bodyC.text.trim(),
+      pin: _isPinned,
+      image: _pickedImage,
+    );
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pop(context, true);
+    } else {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Saqlashda xatolik yuz berdi'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   @override
@@ -882,29 +906,18 @@ class _NewsEditSheetState extends State<_NewsEditSheet> {
 
               const SizedBox(height: 18),
 
-              // ── Rasm URL ─────────────────────────────────────────────────
+              // ── Rasm ──────────────────────────────────────────────────────
               _SheetLabel(
                 icon: Icons.image_outlined,
-                text: 'Rasm URL',
+                text: 'Rasm',
                 required: false,
               ),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _imageC,
-                keyboardType: TextInputType.url,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF111827)),
-                decoration: _inputDeco('https://example.com/image.jpg').copyWith(
-                  prefixIcon: Container(
-                    margin: const EdgeInsets.all(10),
-                    width: 32, height: 32,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.link_rounded,
-                        color: AppColors.textSecondary, size: 16),
-                  ),
-                ),
+              _ImagePickerField(
+                pickedImage: _pickedImage,
+                existingUrl: widget.existing?.imageUrl,
+                onPick: _pickImage,
+                onClear: () => setState(() => _pickedImage = null),
               ),
 
               const SizedBox(height: 18),
@@ -1038,7 +1051,7 @@ class _NewsEditSheetState extends State<_NewsEditSheet> {
                   Expanded(
                     flex: 2,
                     child: GestureDetector(
-                      onTap: _save,
+                      onTap: _saving ? null : _save,
                       child: Container(
                         height: 52,
                         decoration: BoxDecoration(
@@ -1061,26 +1074,36 @@ class _NewsEditSheetState extends State<_NewsEditSheet> {
                             ),
                           ],
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              _isEdit
-                                  ? Icons.check_rounded
-                                  : Icons.add_circle_outline_rounded,
-                              color: Colors.white, size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _isEdit ? 'Saqlash' : "Qo'shish",
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                        child: _saving
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Colors.white),
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _isEdit
+                                        ? Icons.check_rounded
+                                        : Icons.add_circle_outline_rounded,
+                                    color: Colors.white, size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _isEdit ? 'Saqlash' : "Qo'shish",
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ),
@@ -1164,6 +1187,103 @@ class _SheetLabel extends StatelessWidget {
       ],
     );
   }
+}
+
+// ─── Image Picker Field ───────────────────────────────────────────────────────
+
+class _ImagePickerField extends StatelessWidget {
+  final File? pickedImage;
+  final String? existingUrl;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  const _ImagePickerField({
+    required this.pickedImage,
+    required this.existingUrl,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPicked = pickedImage != null;
+    final hasExisting = existingUrl != null && existingUrl!.isNotEmpty;
+
+    if (hasPicked || hasExisting) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: hasPicked
+                ? Image.file(pickedImage!,
+                    height: 170,
+                    width: double.infinity,
+                    fit: BoxFit.cover)
+                : Image.network(existingUrl!,
+                    height: 170,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholder(onPick)),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Row(
+              children: [
+                _circleBtn(Icons.edit_rounded, onPick),
+                if (hasPicked) ...[
+                  const SizedBox(width: 6),
+                  _circleBtn(Icons.close_rounded, onClear),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _placeholder(onPick);
+  }
+
+  Widget _placeholder(VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 110,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: const Color(0xFFE5E7EB),
+                style: BorderStyle.solid,
+                width: 1.5),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_photo_alternate_outlined,
+                  size: 30, color: AppColors.textSecondary),
+              SizedBox(height: 6),
+              Text('Galereyadan rasm tanlang',
+                  style: TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      );
+
+  Widget _circleBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.55),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.white, size: 18),
+        ),
+      );
 }
 
 // ─── Delete Dialog ────────────────────────────────────────────────────────────

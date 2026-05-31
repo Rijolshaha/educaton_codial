@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
+import '../../../services/api_service.dart';
 import '../../../pages/admin/admin_dashboard_page.dart';
 import '../../../pages/admin/admin_guruhlar_page.dart';
 import '../../../pages/admin/admin_kurslar_page.dart';
@@ -7,7 +8,7 @@ import '../../../pages/admin/admin_ustozlar_page.dart';
 import '../../../pages/admin/admin_oquvchilar_page.dart';
 import '../../../pages/news_page.dart';
 import '../../../pages/baholash_nizomi_page.dart';
-import '../../../pages/registration_page.dart';
+import '../../../utils/logout.dart';
 import 'admin_auction_page.dart';
 
 // ─── Placeholder page (faqat O'quvchilar uchun hali) ─────────────────────────
@@ -166,9 +167,9 @@ class _AdminMainPageState extends State<AdminMainPage> {
             activeIcon: Icon(Icons.dashboard_rounded),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
-            icon: _badgeIcon(Icons.newspaper_outlined),
-            activeIcon: _badgeIcon(Icons.newspaper_rounded),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.newspaper_outlined),
+            activeIcon: Icon(Icons.newspaper_rounded),
             label: 'Yangliklar',
           ),
           const BottomNavigationBarItem(
@@ -185,28 +186,6 @@ class _AdminMainPageState extends State<AdminMainPage> {
       ),
     );
   }
-
-  static Widget _badgeIcon(IconData icon) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      Icon(icon),
-      Positioned(
-        top: -4, right: -6,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-              color: AppColors.red,
-              borderRadius: BorderRadius.circular(10)),
-          child: const Text('5',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800)),
-        ),
-      ),
-    ],
-  );
 }
 
 // ─── Admin Drawer ─────────────────────────────────────────────────────────────
@@ -220,7 +199,7 @@ class _AdminDrawer extends StatelessWidget {
 
   static const List<_DrawerItem> _items = [
     _DrawerItem(index:  0, icon: Icons.dashboard_outlined,     activeIcon: Icons.dashboard_rounded,     label: 'Dashboard',   badge: 0),
-    _DrawerItem(index:  1, icon: Icons.newspaper_outlined,     activeIcon: Icons.newspaper_rounded,     label: 'Yangliklar',  badge: 5),
+    _DrawerItem(index:  1, icon: Icons.newspaper_outlined,     activeIcon: Icons.newspaper_rounded,     label: 'Yangliklar',  badge: 0),
     _DrawerItem(index: -1, icon: Icons.menu_book_outlined,     activeIcon: Icons.menu_book_rounded,     label: 'Kurslar',     badge: 0, routeKey: 'kurslar'),
     _DrawerItem(index: -1, icon: Icons.school_outlined,        activeIcon: Icons.school_rounded,        label: 'Ustozlar',    badge: 0, routeKey: 'ustozlar'),
     _DrawerItem(index:  2, icon: Icons.groups_2_outlined,      activeIcon: Icons.groups_2_rounded,      label: 'Guruhlar',    badge: 0),
@@ -336,18 +315,20 @@ class _AdminDrawer extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Robiya Anvarova',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: Color(0xFF111827)),
-                                overflow: TextOverflow.ellipsis),
-                            SizedBox(height: 2),
-                            Text('Admin',
+                            Text(
+                              ApiService().userName ?? 'Admin',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: Color(0xFF111827)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            const Text('Admin',
                                 style: TextStyle(
                                     fontSize: 12,
                                     color: Color(0xFF6B7280))),
@@ -358,18 +339,7 @@ class _AdminDrawer extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   GestureDetector(
-                    onTap: () => Navigator.pushAndRemoveUntil(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (_, anim, __) =>
-                        const RegistrationPage(),
-                        transitionsBuilder: (_, anim, __, child) =>
-                            FadeTransition(opacity: anim, child: child),
-                        transitionDuration:
-                        const Duration(milliseconds: 350),
-                      ),
-                          (route) => false,
-                    ),
+                    onTap: () => logoutAndGoToLogin(context),
                     child: Row(
                       children: [
                         Icon(Icons.logout_rounded,

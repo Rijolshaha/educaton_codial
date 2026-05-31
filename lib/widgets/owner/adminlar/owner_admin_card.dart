@@ -62,10 +62,20 @@ class OwnerAdminCard extends StatelessWidget {
                       border: Border.all(
                           color: Colors.white.withOpacity(0.4), width: 2),
                     ),
-                    child: Center(
-                      child: Text(admin.avatarEmoji,
-                          style: TextStyle(fontSize: r.iconLg)),
-                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: (admin.avatarUrl != null)
+                        ? Image.network(
+                            admin.avatarUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Text(admin.avatarEmoji,
+                                  style: TextStyle(fontSize: r.iconLg)),
+                            ),
+                          )
+                        : Center(
+                            child: Text(admin.avatarEmoji,
+                                style: TextStyle(fontSize: r.iconLg)),
+                          ),
                   ),
                   SizedBox(width: r.gapMd),
                   Expanded(

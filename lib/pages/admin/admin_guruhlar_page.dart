@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
 import '../../../models/guruh_model.dart';
-import '../../../models/student_model.dart';
+import '../../../services/group_service.dart';
 import '../../../widgets/admin/guruhlar/guruh_stat_chip.dart';
 import '../../../widgets/admin/guruhlar/guruh_card.dart';
 import '../../../widgets/admin/guruhlar/guruh_students_dialog.dart';
@@ -17,7 +17,9 @@ class AdminGuruhlarPage extends StatefulWidget {
 }
 
 class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
-  late List<AdminGuruh> _guruhlar;
+  final GroupService _service = GroupService();
+  List<AdminGuruh> _guruhlar = [];
+  bool _loading = true;
   final _searchCtrl = TextEditingController();
 
   String? _filterUstoz;
@@ -28,14 +30,41 @@ class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
   @override
   void initState() {
     super.initState();
-    _guruhlar = List.from(mockGuruhlar);
     _searchCtrl.addListener(() => setState(() {}));
+    _load();
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
+    final list = await _service.fetchGroups();
+    if (!mounted) return;
+    setState(() {
+      _guruhlar = list;
+      // Endi mavjud bo'lmagan filtrlarni tozalaymiz.
+      if (_filterUstoz != null && !_ustozOptions.contains(_filterUstoz)) {
+        _filterUstoz = null;
+      }
+      if (_filterKurs != null && !_kursOptions.contains(_filterKurs)) {
+        _filterKurs = null;
+      }
+      _loading = false;
+    });
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? AppColors.red : const Color(0xFF059669),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+    ));
   }
 
   // ── Computed ───────────────────────────────────────────────────────────────
@@ -51,6 +80,27 @@ class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
     return true;
   }).toList();
 
+  /// Filtr variantlari — real yuklangan guruhlardan.
+  List<String> get _ustozOptions {
+    final set = _guruhlar
+        .map((g) => g.ustoz)
+        .where((e) => e.trim().isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return set;
+  }
+
+  List<String> get _kursOptions {
+    final set = _guruhlar
+        .map((g) => g.kurs)
+        .where((e) => e.trim().isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return set;
+  }
+
   bool get _hasFilter =>
       _filterUstoz != null || _filterKurs != null || _filterJadval != null;
 
@@ -61,13 +111,20 @@ class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
   });
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  void _showStudents(AdminGuruh guruh) {
-    final students =
-    studentsHaftalik.where((s) => s.group == guruh.nomi).toList();
+  Future<void> _showStudents(AdminGuruh guruh) async {
+    // Yuklanish indikatori
     showDialog(
       context: context,
-      builder: (_) =>
-          GuruhStudentsDialog(guruh: guruh, students: students),
+      barrierDismissible: false,
+      builder: (_) => Center(
+          child: CircularProgressIndicator(color: AppColors.primary)),
+    );
+    final students = await _service.fetchGroupStudents(guruh.id);
+    if (!mounted) return;
+    Navigator.pop(context); // loaderni yopish
+    showDialog(
+      context: context,
+      builder: (_) => GuruhStudentsDialog(guruh: guruh, students: students),
     );
   }
 
@@ -79,23 +136,50 @@ class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
     builder: (_) => GuruhConfirmDialog(
       title: "Guruhni o'chirish",
       message: "'${g.nomi}' guruhini o'chirishni xohlaysizmi?",
-      onConfirm: () =>
-          setState(() => _guruhlar.removeWhere((e) => e.id == g.id)),
+      onConfirm: () => _doDelete(g),
     ),
   );
+
+  Future<void> _doDelete(AdminGuruh g) async {
+    final ok = await _service.deleteGroup(g.id);
+    if (!mounted) return;
+    if (!ok) {
+      _snack("O'chirib bo'lmadi", error: true);
+      return;
+    }
+    _snack("Guruh o'chirildi");
+    await _load();
+  }
 
   void _openForm({AdminGuruh? guruh}) => showDialog(
     context: context,
     builder: (_) => GuruhFormDialog(
       guruh: guruh,
-      onSave: (saved) => setState(() {
-        if (guruh == null) {
-          _guruhlar.insert(0, saved);
-        } else {
-          final i = _guruhlar.indexWhere((e) => e.id == saved.id);
-          if (i != -1) _guruhlar[i] = saved;
+      onSave: (res) async {
+        final ok = guruh == null
+            ? await _service.createGroup(
+                name: res.name,
+                courseId: res.courseId,
+                mentorId: res.mentorId,
+                jadval: res.jadval,
+                active: res.active,
+              )
+            : await _service.updateGroup(
+                guruh.id,
+                name: res.name,
+                courseId: res.courseId,
+                mentorId: res.mentorId,
+                jadval: res.jadval,
+                active: res.active,
+              );
+        if (ok && mounted) {
+          _snack(guruh == null
+              ? "Guruh qo'shildi ✅"
+              : "O'zgarishlar saqlandi ✅");
+          await _load();
         }
-      }),
+        return ok;
+      },
     ),
   );
 
@@ -106,8 +190,14 @@ class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
 
     return Scaffold(
       backgroundColor: AppColors.scaffold,
-      body: SafeArea(
-        child: CustomScrollView(
+      body: _loading
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : SafeArea(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: _load,
+          child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
@@ -300,7 +390,7 @@ class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
                               label: 'Ustoz',
                               hint: 'Barcha ustozlar',
                               value: _filterUstoz,
-                              items: allUstozlar.toList(),
+                              items: _ustozOptions,
                               labelBuilder: (v) => v,
                               onChanged: (v) =>
                                   setState(() => _filterUstoz = v),
@@ -310,7 +400,7 @@ class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
                               label: 'Kurs',
                               hint: 'Barcha kurslar',
                               value: _filterKurs,
-                              items: allKurslar.toList(),
+                              items: _kursOptions,
                               labelBuilder: (v) => v,
                               onChanged: (v) =>
                                   setState(() => _filterKurs = v),
@@ -381,6 +471,7 @@ class _AdminGuruhlarPageState extends State<AdminGuruhlarPage> {
 
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
+        ),
         ),
       ),
     );

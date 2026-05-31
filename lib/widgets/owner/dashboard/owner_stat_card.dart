@@ -53,19 +53,30 @@ class OwnerStatCard extends StatelessWidget {
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500),
           ),
-          SizedBox(height: r.gapSm),
-          Row(children: [
-            const Icon(Icons.trending_up_rounded,
-                size: 14, color: Color(0xFF059669)),
-            const SizedBox(width: 3),
-            Text(
-              stat.growth,
-              style: TextStyle(
-                  fontSize: r.fontSm,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF059669)),
-            ),
-          ]),
+          if (stat.growth.isNotEmpty) ...[
+            SizedBox(height: r.gapSm),
+            Builder(builder: (_) {
+              final isNeg = stat.growth.trimLeft().startsWith('-');
+              final color =
+                  isNeg ? const Color(0xFFEF4444) : const Color(0xFF059669);
+              return Row(children: [
+                Icon(
+                    isNeg
+                        ? Icons.trending_down_rounded
+                        : Icons.trending_up_rounded,
+                    size: 14,
+                    color: color),
+                const SizedBox(width: 3),
+                Text(
+                  stat.growth,
+                  style: TextStyle(
+                      fontSize: r.fontSm,
+                      fontWeight: FontWeight.w700,
+                      color: color),
+                ),
+              ]);
+            }),
+          ],
         ],
       ),
     );

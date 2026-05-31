@@ -132,8 +132,9 @@ class _BookEditDialogState extends State<BookEditDialog> {
                   value: _status,
                   isExpanded: true,
                   items: const [
-                    DropdownMenuItem(value: BookStatus.oqiyapman, child: Text("O'qiyapman")),
-                    DropdownMenuItem(value: BookStatus.tugatdim,  child: Text('Tugatdim')),
+                    DropdownMenuItem(value: BookStatus.oqiyapman,        child: Text("O'qiyapman")),
+                    DropdownMenuItem(value: BookStatus.tugatdim,         child: Text('Tugatdim')),
+                    DropdownMenuItem(value: BookStatus.rejalashtirilgan, child: Text('Rejalashtirilgan')),
                   ],
                   onChanged: (v) { if (v != null) setState(() => _status = v); },
                 ),

@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- API bilan ishlash uchun internet ruxsati (release/profile build) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="educaton_codial"
         android:name="${applicationName}"

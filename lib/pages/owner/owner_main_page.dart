@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
 import '../../../models/owner_model.dart';
+import '../../../services/api_service.dart';
 import '../../../utils/responsive.dart';
 
 // ── Owner pages ──
@@ -15,7 +16,7 @@ import '../../../pages/admin/admin_oquvchilar_page.dart';
 import '../../../pages/news_page.dart';
 
 // ── Other shared ──
-import '../../../pages/registration_page.dart';
+import '../../../utils/logout.dart';
 import '../admin/admin_auction_page.dart';
 
 class OwnerMainPage extends StatefulWidget {
@@ -27,7 +28,7 @@ class OwnerMainPage extends StatefulWidget {
 
 class _OwnerMainPageState extends State<OwnerMainPage> {
   int _currentIndex = 0;
-  final _owner = OwnerModel.mock();
+  final _owner = OwnerModel.mock(name: ApiService().userName);
 
   static const List<String> _titles = [
     'Dashboard',
@@ -50,7 +51,7 @@ class _OwnerMainPageState extends State<OwnerMainPage> {
 
     final pages = [
       const OwnerDashboardPage(),
-      const NewsPage(),
+      const NewsPage(pageRole: NewsPageRole.owner),
       const AdminGuruhlarPage(),
       const AdminAuksionPage(),
     ];
@@ -389,19 +390,7 @@ class _OwnerSidebar extends StatelessWidget {
                   ]),
                   const SizedBox(height: 14),
                   GestureDetector(
-                    onTap: () => Navigator.pushAndRemoveUntil(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (_, anim, __) =>
-                        const RegistrationPage(),
-                        transitionsBuilder: (_, anim, __, child) =>
-                            FadeTransition(
-                                opacity: anim, child: child),
-                        transitionDuration:
-                        const Duration(milliseconds: 350),
-                      ),
-                          (route) => false,
-                    ),
+                    onTap: () => logoutAndGoToLogin(context),
                     child: Row(children: [
                       Icon(Icons.logout_rounded,
                           color: AppColors.red, size: 18),
@@ -702,20 +691,7 @@ class _OwnerDrawerMobile extends StatelessWidget {
                 ]),
                 const SizedBox(height: 16),
                 GestureDetector(
-                  onTap: () => Navigator.pushAndRemoveUntil(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (_, anim, __) =>
-                      const RegistrationPage(),
-                      transitionsBuilder:
-                          (_, anim, __, child) =>
-                          FadeTransition(
-                              opacity: anim, child: child),
-                      transitionDuration:
-                      const Duration(milliseconds: 350),
-                    ),
-                        (route) => false,
-                  ),
+                  onTap: () => logoutAndGoToLogin(context),
                   child: Row(children: [
                     Icon(Icons.logout_rounded,
                         color: AppColors.red, size: 20),

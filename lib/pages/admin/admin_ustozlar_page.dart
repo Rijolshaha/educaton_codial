@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
 import '../../../models/ustoz_model.dart';
+import '../../../services/mentor_service.dart';
 import '../../../widgets/admin/ustozlar/ustoz_stat_card.dart';
 import '../../../widgets/admin/ustozlar/ustoz_card.dart';
 import '../../../widgets/admin/ustozlar/ustoz_form_dialog.dart';
@@ -14,20 +15,42 @@ class AdminUstozlarPage extends StatefulWidget {
 }
 
 class _AdminUstozlarPageState extends State<AdminUstozlarPage> {
-  late List<UstozModel> _ustozlar;
+  final MentorService _service = MentorService();
+  List<UstozModel> _ustozlar = [];
+  bool _loading = true;
   final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _ustozlar = List.from(mockUstozlar);
     _searchCtrl.addListener(() => setState(() {}));
+    _load();
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
+    final list = await _service.fetchMentors();
+    if (!mounted) return;
+    setState(() {
+      _ustozlar = list;
+      _loading = false;
+    });
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? AppColors.red : AppColors.greenDark,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+    ));
   }
 
   // ── Computed ───────────────────────────────────────────────────────────────
@@ -58,23 +81,49 @@ class _AdminUstozlarPageState extends State<AdminUstozlarPage> {
     builder: (_) => UstozConfirmDialog(
       title: "Ustozni o'chirish",
       message: "'${u.ism}' ustozni o'chirishni xohlaysizmi?",
-      onConfirm: () =>
-          setState(() => _ustozlar.removeWhere((e) => e.id == u.id)),
+      onConfirm: () => _doDelete(u),
     ),
   );
+
+  Future<void> _doDelete(UstozModel u) async {
+    final ok = await _service.deleteMentor(u.id);
+    if (!mounted) return;
+    if (!ok) {
+      _snack("O'chirib bo'lmadi", error: true);
+      return;
+    }
+    _snack("Ustoz o'chirildi");
+    await _load();
+  }
 
   void _openForm({UstozModel? ustoz}) => showDialog(
     context: context,
     builder: (_) => UstozFormDialog(
       ustoz: ustoz,
-      onSave: (saved) => setState(() {
-        if (ustoz == null) {
-          _ustozlar.insert(0, saved);
-        } else {
-          final i = _ustozlar.indexWhere((e) => e.id == saved.id);
-          if (i != -1) _ustozlar[i] = saved;
+      onSave: (res) async {
+        final ok = ustoz == null
+            ? await _service.createMentor(
+                username: res.username,
+                password: res.password,
+                email: res.email,
+                direction: res.kurs,
+              )
+            : await _service.updateMentor(
+                ustoz.id,
+                username: res.username,
+                email: res.email,
+                direction: res.kurs,
+                bio: res.bio,
+                avatar: res.avatar,
+              );
+        if (ok && mounted) {
+          _snack(ustoz == null
+              ? "Ustoz qo'shildi ✅"
+              : "O'zgarishlar saqlandi ✅");
+          await _load();
         }
-      }),
+        return ok;
+      },
     ),
   );
 
@@ -85,8 +134,14 @@ class _AdminUstozlarPageState extends State<AdminUstozlarPage> {
 
     return Scaffold(
       backgroundColor: AppColors.scaffold,
-      body: SafeArea(
-        child: CustomScrollView(
+      body: _loading
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : SafeArea(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: _load,
+          child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
@@ -246,6 +301,7 @@ class _AdminUstozlarPageState extends State<AdminUstozlarPage> {
 
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
+        ),
         ),
       ),
     );

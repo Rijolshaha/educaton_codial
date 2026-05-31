@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../models/auction_model.dart';
+import '../../../services/auction_service.dart';
 import '../../../constants/app_colors.dart';
 
 class AdminAuksionPage extends StatefulWidget {
@@ -10,31 +13,57 @@ class AdminAuksionPage extends StatefulWidget {
 }
 
 class _AdminAuksionPageState extends State<AdminAuksionPage> {
-  late List<AuctionEvent> _events;
+  final _service = AuctionService();
+  List<AuctionEvent> _events = const [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _events = List.from(mockAuctionEvents);
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final ev = await _service.fetchAuctions();
+    if (!mounted) return;
+    setState(() {
+      _events = ev;
+      _loading = false;
+    });
+  }
+
+  void _snack(String m, {bool err = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(m),
+        backgroundColor: err ? AppColors.red : AppColors.greenDark,
+      ),
+    );
   }
 
   // ── Event CRUD ──────────────────────────────────────────────────────────────
 
-  void _addEvent() {
-    _openEventDialog();
-  }
-
-  void _editEvent(AuctionEvent event) {
-    _openEventDialog(event: event);
-  }
+  void _addEvent() => _openEventDialog();
+  void _editEvent(AuctionEvent event) => _openEventDialog(event: event);
 
   void _deleteEvent(AuctionEvent event) {
     showDialog(
       context: context,
       builder: (_) => _ConfirmDialog(
-        title: "Auксionni o'chirish",
-        message: "'${event.title}' auксionini o'chirishni xohlaysizmi?",
-        onConfirm: () => setState(() => _events.removeWhere((e) => e.id == event.id)),
+        title: "Auksionni o'chirish",
+        message: "'${event.title}' auksionini o'chirishni xohlaysizmi?",
+        onConfirm: () async {
+          final ok = await _service.deleteAuction(event.id);
+          if (!mounted) return;
+          if (ok) {
+            await _load();
+            _snack("Auksion o'chirildi");
+          } else {
+            _snack("O'chirishda xatolik", err: true);
+          }
+        },
       ),
     );
   }
@@ -44,27 +73,36 @@ class _AdminAuksionPageState extends State<AdminAuksionPage> {
       context: context,
       builder: (_) => _EventDialog(
         event: event,
-        onSave: (saved) => setState(() {
-          if (event == null) {
-            _events.insert(0, saved);
-          } else {
-            final i = _events.indexWhere((e) => e.id == saved.id);
-            if (i != -1) _events[i] = saved;
+        onSave: (d) async {
+          final ok = event == null
+              ? await _service.createAuction(
+                  title: d.title,
+                  description: d.description,
+                  date: d.date,
+                  isActive: d.isActive,
+                )
+              : await _service.updateAuction(
+                  event.id,
+                  title: d.title,
+                  description: d.description,
+                  date: d.date,
+                  isActive: d.isActive,
+                );
+          if (ok && mounted) {
+            await _load();
+            _snack(event == null ? "Auksion qo'shildi" : 'Auksion yangilandi');
           }
-        }),
+          return ok;
+        },
       ),
     );
   }
 
   // ── Product CRUD ────────────────────────────────────────────────────────────
 
-  void _addProduct(AuctionEvent event) {
-    _openProductDialog(event: event);
-  }
-
-  void _editProduct(AuctionEvent event, AuctionProduct product) {
-    _openProductDialog(event: event, product: product);
-  }
+  void _addProduct(AuctionEvent event) => _openProductDialog(event: event);
+  void _editProduct(AuctionEvent event, AuctionProduct product) =>
+      _openProductDialog(event: event, product: product);
 
   void _deleteProduct(AuctionEvent event, AuctionProduct product) {
     showDialog(
@@ -72,14 +110,16 @@ class _AdminAuksionPageState extends State<AdminAuksionPage> {
       builder: (_) => _ConfirmDialog(
         title: "Mahsulotni o'chirish",
         message: "'${product.title}' mahsulotini o'chirishni xohlaysizmi?",
-        onConfirm: () => setState(() {
-          final i = _events.indexWhere((e) => e.id == event.id);
-          if (i != -1) {
-            final updatedProducts = List<AuctionProduct>.from(_events[i].products)
-              ..removeWhere((p) => p.id == product.id);
-            _events[i] = _events[i].copyWith(products: updatedProducts);
+        onConfirm: () async {
+          final ok = await _service.deleteProduct(product.id);
+          if (!mounted) return;
+          if (ok) {
+            await _load();
+            _snack("Mahsulot o'chirildi");
+          } else {
+            _snack("O'chirishda xatolik", err: true);
           }
-        }),
+        },
       ),
     );
   }
@@ -89,19 +129,33 @@ class _AdminAuksionPageState extends State<AdminAuksionPage> {
       context: context,
       builder: (_) => _ProductDialog(
         product: product,
-        onSave: (saved) => setState(() {
-          final i = _events.indexWhere((e) => e.id == event.id);
-          if (i != -1) {
-            final products = List<AuctionProduct>.from(_events[i].products);
-            if (product == null) {
-              products.add(saved);
-            } else {
-              final pi = products.indexWhere((p) => p.id == saved.id);
-              if (pi != -1) products[pi] = saved;
-            }
-            _events[i] = _events[i].copyWith(products: products);
+        onSave: (d) async {
+          final ok = product == null
+              ? await _service.createProduct(
+                  auctionId: event.id,
+                  name: d.name,
+                  description: d.description,
+                  pointCost: d.pointCost,
+                  amount: d.amount,
+                  image: d.image,
+                )
+              : await _service.updateProduct(
+                  product.id,
+                  auctionId: event.id,
+                  name: d.name,
+                  description: d.description,
+                  pointCost: d.pointCost,
+                  amount: d.amount,
+                  image: d.image,
+                );
+          if (ok && mounted) {
+            await _load();
+            _snack(product == null
+                ? "Mahsulot qo'shildi"
+                : 'Mahsulot yangilandi');
           }
-        }),
+          return ok;
+        },
       ),
     );
   }
@@ -113,8 +167,11 @@ class _AdminAuksionPageState extends State<AdminAuksionPage> {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
             // Header
             SliverToBoxAdapter(
               child: Padding(
@@ -166,22 +223,45 @@ class _AdminAuksionPageState extends State<AdminAuksionPage> {
             ),
 
             // Events list
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                    (_, i) => _EventCard(
-                  event: _events[i],
-                  onEdit: () => _editEvent(_events[i]),
-                  onDelete: () => _deleteEvent(_events[i]),
-                  onAddProduct: () => _addProduct(_events[i]),
-                  onEditProduct: (p) => _editProduct(_events[i], p),
-                  onDeleteProduct: (p) => _deleteProduct(_events[i], p),
+            if (_loading)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 60),
+                  child: Center(child: CircularProgressIndicator()),
                 ),
-                childCount: _events.length,
+              )
+            else if (_events.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 60),
+                  child: Column(children: [
+                    Icon(Icons.calendar_month_outlined,
+                        size: 52, color: Colors.grey.shade300),
+                    const SizedBox(height: 12),
+                    const Text('Auksionlar topilmadi',
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 14)),
+                  ]),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (_, i) => _EventCard(
+                    event: _events[i],
+                    onEdit: () => _editEvent(_events[i]),
+                    onDelete: () => _deleteEvent(_events[i]),
+                    onAddProduct: () => _addProduct(_events[i]),
+                    onEditProduct: (p) => _editProduct(_events[i], p),
+                    onDeleteProduct: (p) => _deleteProduct(_events[i], p),
+                  ),
+                  childCount: _events.length,
+                ),
               ),
-            ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
+          ),
         ),
       ),
     );
@@ -285,9 +365,6 @@ class _EventCard extends StatelessWidget {
                 icon: Icons.access_time_rounded,
                 text:
                 '${event.eventDate.hour.toString().padLeft(2, '0')}:${event.eventDate.minute.toString().padLeft(2, '0')}'),
-            const SizedBox(height: 6),
-            _InfoRow(
-                icon: Icons.location_on_outlined, text: event.location),
             const SizedBox(height: 14),
 
             // Edit / Delete buttons
@@ -440,6 +517,26 @@ class _ProductCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              if (product.imageUrl != null &&
+                  product.imageUrl!.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    product.imageUrl!,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 44,
+                      height: 44,
+                      color: const Color(0xFFF3F4F6),
+                      child: const Icon(Icons.inventory_2_outlined,
+                          size: 20, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Text(product.title,
                     style: const TextStyle(
@@ -481,8 +578,14 @@ class _ProductCard extends StatelessWidget {
                     color: AppColors.orange),
               ),
               const SizedBox(width: 6),
-              const Text('CODIAL',
+              const Text('coin',
                   style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500)),
+              const Spacer(),
+              Text('Soni: ${product.amount}',
+                  style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w500)),
@@ -598,9 +701,17 @@ class _ConfirmDialog extends StatelessWidget {
 
 // ─── Event Dialog ─────────────────────────────────────────────────────────────
 
+class _EventData {
+  final String title;
+  final String description;
+  final DateTime date;
+  final bool isActive;
+  _EventData(this.title, this.description, this.date, this.isActive);
+}
+
 class _EventDialog extends StatefulWidget {
   final AuctionEvent? event;
-  final void Function(AuctionEvent) onSave;
+  final Future<bool> Function(_EventData) onSave;
 
   const _EventDialog({this.event, required this.onSave});
 
@@ -611,9 +722,9 @@ class _EventDialog extends StatefulWidget {
 class _EventDialogState extends State<_EventDialog> {
   late TextEditingController _titleC;
   late TextEditingController _descC;
-  late TextEditingController _locC;
   late DateTime _date;
-  late AuctionStatus _status;
+  late bool _isActive;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -621,16 +732,14 @@ class _EventDialogState extends State<_EventDialog> {
     final e = widget.event;
     _titleC = TextEditingController(text: e?.title ?? '');
     _descC  = TextEditingController(text: e?.description ?? '');
-    _locC   = TextEditingController(text: e?.location ?? "CODIAL Ta'lim Markazi, Toshkent");
     _date   = e?.eventDate ?? DateTime.now().add(const Duration(days: 30));
-    _status = e?.status ?? AuctionStatus.kutilmoqda;
+    _isActive = e?.isActive ?? true;
   }
 
   @override
   void dispose() {
     _titleC.dispose();
     _descC.dispose();
-    _locC.dispose();
     super.dispose();
   }
 
@@ -655,20 +764,29 @@ class _EventDialogState extends State<_EventDialog> {
     }
   }
 
-  void _save() {
-    if (_titleC.text.trim().isEmpty) return;
-    final e = widget.event;
-    widget.onSave(AuctionEvent(
-      id: e?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _titleC.text.trim(),
-      description: _descC.text.trim(),
-      location: _locC.text.trim(),
-      eventDate: _date,
-      status: _status,
-      products: e?.products ?? [],
-      rules: e?.rules ?? [],
+  Future<void> _save() async {
+    if (_titleC.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Auksion nomini kiriting')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final ok = await widget.onSave(_EventData(
+      _titleC.text.trim(),
+      _descC.text.trim(),
+      _date,
+      _isActive,
     ));
-    Navigator.pop(context);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pop(context);
+    } else {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saqlashda xatolik')),
+      );
+    }
   }
 
   @override
@@ -704,9 +822,6 @@ class _EventDialogState extends State<_EventDialog> {
               decoration: _dec('Auksion haqida qisqacha...'),
             ),
             const SizedBox(height: 12),
-            _label('Manzil'),
-            _field(_locC, 'Manzilni kiriting'),
-            const SizedBox(height: 12),
             _label('Sana va vaqt'),
             GestureDetector(
               onTap: _pickDate,
@@ -737,19 +852,15 @@ class _EventDialogState extends State<_EventDialog> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<AuctionStatus>(
-                  value: _status,
+                child: DropdownButton<bool>(
+                  value: _isActive,
                   isExpanded: true,
                   items: const [
-                    DropdownMenuItem(
-                        value: AuctionStatus.kutilmoqda,
-                        child: Text('Kutilmoqda')),
-                    DropdownMenuItem(
-                        value: AuctionStatus.yakunlangan,
-                        child: Text('Yakunlangan')),
+                    DropdownMenuItem(value: true, child: Text('Faol')),
+                    DropdownMenuItem(value: false, child: Text('Faol emas')),
                   ],
                   onChanged: (v) {
-                    if (v != null) setState(() => _status = v);
+                    if (v != null) setState(() => _isActive = v);
                   },
                 ),
               ),
@@ -759,7 +870,7 @@ class _EventDialogState extends State<_EventDialog> {
               Expanded(
                 flex: 2,
                 child: ElevatedButton(
-                  onPressed: _save,
+                  onPressed: _saving ? null : _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -768,14 +879,21 @@ class _EventDialogState extends State<_EventDialog> {
                         borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
-                  child: const Text('Saqlash',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Saqlash',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _saving ? null : () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -822,9 +940,18 @@ class _EventDialogState extends State<_EventDialog> {
 
 // ─── Product Dialog ───────────────────────────────────────────────────────────
 
+class _ProductData {
+  final String name;
+  final String description;
+  final int pointCost;
+  final int amount;
+  final File? image;
+  _ProductData(this.name, this.description, this.pointCost, this.amount, this.image);
+}
+
 class _ProductDialog extends StatefulWidget {
   final AuctionProduct? product;
-  final void Function(AuctionProduct) onSave;
+  final Future<bool> Function(_ProductData) onSave;
 
   const _ProductDialog({this.product, required this.onSave});
 
@@ -836,7 +963,9 @@ class _ProductDialogState extends State<_ProductDialog> {
   late TextEditingController _titleC;
   late TextEditingController _descC;
   late TextEditingController _priceC;
-  late TextEditingController _catC;
+  late TextEditingController _amountC;
+  File? _image;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -845,7 +974,7 @@ class _ProductDialogState extends State<_ProductDialog> {
     _titleC = TextEditingController(text: p?.title ?? '');
     _descC  = TextEditingController(text: p?.description ?? '');
     _priceC = TextEditingController(text: p != null ? '${p.startingPrice}' : '');
-    _catC   = TextEditingController(text: p?.category ?? '');
+    _amountC = TextEditingController(text: p != null ? '${p.amount}' : '1');
   }
 
   @override
@@ -853,22 +982,40 @@ class _ProductDialogState extends State<_ProductDialog> {
     _titleC.dispose();
     _descC.dispose();
     _priceC.dispose();
-    _catC.dispose();
+    _amountC.dispose();
     super.dispose();
   }
 
-  void _save() {
-    if (_titleC.text.trim().isEmpty) return;
-    final price = int.tryParse(_priceC.text.trim()) ?? 0;
-    final p = widget.product;
-    widget.onSave(AuctionProduct(
-      id: p?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _titleC.text.trim(),
-      description: _descC.text.trim(),
-      category: _catC.text.trim().isEmpty ? 'Boshqa' : _catC.text.trim(),
-      startingPrice: price,
+  Future<void> _pickImage() async {
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked != null) setState(() => _image = File(picked.path));
+  }
+
+  Future<void> _save() async {
+    if (_titleC.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mahsulot nomini kiriting')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final ok = await widget.onSave(_ProductData(
+      _titleC.text.trim(),
+      _descC.text.trim(),
+      int.tryParse(_priceC.text.trim()) ?? 0,
+      int.tryParse(_amountC.text.trim()) ?? 1,
+      _image,
     ));
-    Navigator.pop(context);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pop(context);
+    } else {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saqlashda xatolik')),
+      );
+    }
   }
 
   @override
@@ -895,7 +1042,7 @@ class _ProductDialogState extends State<_ProductDialog> {
             ),
             const SizedBox(height: 14),
             _label('Mahsulot nomi *'),
-            _field(_titleC, 'Masalan: MacBook Air M2'),
+            TextField(controller: _titleC, decoration: _dec('Masalan: MacBook Air M2')),
             const SizedBox(height: 12),
             _label('Tavsif'),
             TextField(
@@ -903,17 +1050,60 @@ class _ProductDialogState extends State<_ProductDialog> {
                 maxLines: 3,
                 decoration: _dec('Mahsulot haqida...')),
             const SizedBox(height: 12),
-            _label('Kategoriya'),
-            _field(_catC, 'Texnologiya, Audio, Aksesuar...'),
-            const SizedBox(height: 12),
-            _label('Narx (CODIAL coin) *'),
+            _label('Narx (coin) *'),
             TextField(
               controller: _priceC,
               keyboardType: TextInputType.number,
-              decoration: _dec('Masalan: 50000').copyWith(
-                suffixText: 'CODIAL',
+              decoration: _dec('Masalan: 300').copyWith(
+                suffixText: 'coin',
                 suffixStyle: const TextStyle(
                     color: AppColors.orange, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _label('Soni'),
+            TextField(
+              controller: _amountC,
+              keyboardType: TextInputType.number,
+              decoration: _dec('Masalan: 1'),
+            ),
+            const SizedBox(height: 12),
+            _label('Rasm'),
+            GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: _image != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(_image!,
+                            height: 90, fit: BoxFit.cover),
+                      )
+                    : (widget.product?.imageUrl != null &&
+                            widget.product!.imageUrl!.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(widget.product!.imageUrl!,
+                                height: 90, fit: BoxFit.cover),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.image_outlined,
+                                  size: 18, color: AppColors.textSecondary),
+                              SizedBox(width: 8),
+                              Text('Rasm tanlash',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textSecondary)),
+                            ],
+                          )),
               ),
             ),
             const SizedBox(height: 20),
@@ -921,7 +1111,7 @@ class _ProductDialogState extends State<_ProductDialog> {
               Expanded(
                 flex: 2,
                 child: ElevatedButton(
-                  onPressed: _save,
+                  onPressed: _saving ? null : _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.orange,
                     foregroundColor: Colors.white,
@@ -930,14 +1120,21 @@ class _ProductDialogState extends State<_ProductDialog> {
                         borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
-                  child: const Text('Saqlash',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Saqlash',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _saving ? null : () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -959,11 +1156,6 @@ class _ProductDialogState extends State<_ProductDialog> {
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(t,
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-  );
-
-  Widget _field(TextEditingController c, String hint) => TextField(
-    controller: c,
-    decoration: _dec(hint),
   );
 
   InputDecoration _dec(String hint) => InputDecoration(
