@@ -289,7 +289,7 @@ class _AdminUstozlarPageState extends State<AdminUstozlarPage> {
                     ),
                     const SizedBox(height: 10),
                     UstozStatCard(
-                      label: "O'rtacha guruhlar",
+                      label: "O'rtacha faol guruhlar",
                       value: _ortachaGuruhlar
                           .toStringAsFixed(0),
                       color: AppColors.orange,

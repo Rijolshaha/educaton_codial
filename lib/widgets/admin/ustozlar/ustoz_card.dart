@@ -141,7 +141,7 @@ class UstozCard extends StatelessWidget {
               Expanded(
                 child: _InfoItem(
                   icon: Icons.groups_2_outlined,
-                  label: 'Guruhlar',
+                  label: 'Faol guruhlar',
                   value: '${ustoz.guruhlarSoni} ta',
                   valueColor: AppColors.primary,
                 ),

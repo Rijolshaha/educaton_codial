@@ -81,13 +81,16 @@ class UstozModel {
     final username = (user?['username'] ?? '').toString();
     final email = (json['email'] ?? user?['email'] ?? '').toString();
 
-    final groups = (json['groups'] as List?) ?? const [];
-    final hasActive =
-        groups.any((g) => g is Map && g['active'] == true);
+    final allGroups = (json['groups'] as List?) ?? const [];
+    final activeGroups = allGroups
+        .whereType<Map>()
+        .where((g) => g['active'] == true)
+        .toList();
+    final hasActive = activeGroups.isNotEmpty;
 
-    // Kurs (direction) — bo'sh bo'lsa guruhlardagi eng ko'p uchragan kursdan.
+    // Kurs (direction) — bo'sh bo'lsa faol guruhlardagi eng ko'p uchragan kursdan.
     var kurs = (json['direction'] ?? '').toString().trim();
-    if (kurs.isEmpty) kurs = _topCourse(groups);
+    if (kurs.isEmpty) kurs = _topCourse(activeGroups);
 
     final avatar = (json['avatar'] ?? '').toString();
 
@@ -97,7 +100,7 @@ class UstozModel {
       email: email,
       kurs: kurs,
       bio: (json['bio'] ?? '').toString(),
-      guruhlarSoni: groups.length,
+      guruhlarSoni: activeGroups.length,
       oquvchilarSoni: asInt(json['total_students']),
       pointLimit: asInt(json['point_limit']),
       status: hasActive ? UstozStatus.faol : UstozStatus.nofaol,

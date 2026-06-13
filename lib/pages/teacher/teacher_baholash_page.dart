@@ -58,8 +58,13 @@ class _StudentGrade {
 
 class TeacherBaholashPage extends StatefulWidget {
   final TeacherModel teacher;
+  final bool isActive;
 
-  const TeacherBaholashPage({super.key, required this.teacher});
+  const TeacherBaholashPage({
+    super.key,
+    required this.teacher,
+    this.isActive = true,
+  });
 
   @override
   State<TeacherBaholashPage> createState() => _TeacherBaholashPageState();
@@ -73,6 +78,7 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
   Map<String, int> _givePointIds = {};
   bool _loadingAssessment = false;
   bool _saving = false;
+  bool _hasSavedToday = false;
 
   // Barchaga qo'llash state
   bool _allQatnashdi = false;
@@ -96,8 +102,12 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
   @override
   void didUpdateWidget(TeacherBaholashPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive && _teacher.groups.isNotEmpty) {
+      _loadAssessment();
+    }
     if (oldWidget.teacher != widget.teacher && _teacher.groups.isNotEmpty) {
-      _selectedGroupIndex = 0;
+      final todayIdx = _todayGroupIndexes;
+      _selectedGroupIndex = todayIdx.isNotEmpty ? todayIdx.first : 0;
       _loadAssessment();
     }
   }
@@ -155,6 +165,7 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
     if (mounted) {
       setState(() {
         _loadingAssessment = false;
+        _hasSavedToday = data?.hasSavedToday ?? false;
         _allQatnashdi = false;
         _allVaqtida = false;
         _allFaollik = false;
@@ -216,6 +227,14 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
 
   Future<void> _onSave() async {
     if (_teacher.groups.isEmpty || _saving) return;
+    if (!_isTodayClassDay) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            "Faqat bugungi dars kunida baholash mumkin. Sana o'zgartirib bo'lmaydi."),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
 
     setState(() => _saving = true);
     final entries = _grades
@@ -243,7 +262,8 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
     setState(() => _saving = false);
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(ok ? 'Baholar saqlandi! ✅' : 'Saqlashda xatolik yuz berdi'),
+      content: Text(
+          ok ? 'Baholar saqlandi! ✅' : 'Saqlashda xatolik yuz berdi'),
       backgroundColor: ok ? AppColors.green : AppColors.red,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -337,7 +357,8 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
                 child: SizedBox(
                   height: 52,
                   child: ElevatedButton.icon(
-                    onPressed: _saving ? null : _onSave,
+                    onPressed:
+                        (_saving || !_isTodayClassDay) ? null : _onSave,
                     icon: _saving
                         ? const SizedBox(
                             width: 20,
@@ -386,13 +407,36 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
                       const SizedBox(height: 8),
                       Builder(builder: (context) {
                         final todayIdxs = _todayGroupIndexes;
-                        final dropdownGroups = todayIdxs.isEmpty
-                            ? _teacher.groups.asMap().entries.toList()
-                            : _teacher.groups.asMap().entries
+                        final dropdownGroups = _teacher.groups
+                            .asMap()
+                            .entries
                             .where((e) => todayIdxs.contains(e.key))
                             .toList();
 
-                        // Agar tanlangan guruh filterlangan ro'yxatda yo'q bo'lsa
+                        if (dropdownGroups.isEmpty) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFEBEE),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'Bugun dars bo\'lmagan — baholash mumkin emas',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.red.shade800,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
                         final validValue = dropdownGroups
                             .any((e) => e.key == _selectedGroupIndex)
                             ? _selectedGroupIndex
@@ -430,25 +474,28 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
                                 ),
                               ),
                             ),
-                            if (todayIdxs.isEmpty) ...[
+                            if (_hasSavedToday) ...[
                               const SizedBox(height: 8),
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFFFDE7),
+                                  color: const Color(0xFFE8F5E9),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.info_outline_rounded,
-                                        size: 15, color: Colors.orange.shade700),
+                                    Icon(Icons.edit_note_rounded,
+                                        size: 16,
+                                        color: Colors.green.shade700),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Bugun hech qaysi guruhda dars yo\'q',
+                                        'Bugun baholar saqlangan. Qayta kirib tahrirlashingiz mumkin (oshirish yoki kamaytirish).',
                                         style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.orange.shade800),
+                                          fontSize: 12,
+                                          color: Colors.green.shade900,
+                                          height: 1.35,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -647,6 +694,8 @@ class _TeacherBaholashPageState extends State<TeacherBaholashPage> {
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                       (ctx, i) => _StudentCard(
+                    key: ValueKey(
+                        'grade_${_currentGroup.id}_${_grades[i].student.id}'),
                     grade: _grades[i],
                     onChanged: () => setState(() {}),
                   ),
@@ -699,7 +748,11 @@ class _BulkChip extends StatelessWidget {
 class _StudentCard extends StatefulWidget {
   final _StudentGrade grade;
   final VoidCallback onChanged;
-  const _StudentCard({required this.grade, required this.onChanged});
+  const _StudentCard({
+    super.key,
+    required this.grade,
+    required this.onChanged,
+  });
 
   @override
   State<_StudentCard> createState() => _StudentCardState();
@@ -714,8 +767,23 @@ class _StudentCardState extends State<_StudentCard> {
   @override
   void initState() {
     super.initState();
-    _vazifaCtrl  = TextEditingController(text: g.vazifa == 0 ? '' : '${g.vazifa}');
-    _podcastCtrl = TextEditingController(text: g.podcastExtra == 0 ? '' : '${g.podcastExtra}');
+    _vazifaCtrl = TextEditingController();
+    _podcastCtrl = TextEditingController();
+    _syncControllers();
+  }
+
+  void _syncControllers() {
+    _vazifaCtrl.text = g.vazifa == 0 ? '' : '${g.vazifa}';
+    _podcastCtrl.text =
+        g.podcastExtra == 0 ? '' : '${g.podcastExtra}';
+  }
+
+  @override
+  void didUpdateWidget(covariant _StudentCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.grade != widget.grade) {
+      _syncControllers();
+    }
   }
 
   @override

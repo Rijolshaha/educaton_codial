@@ -6,6 +6,7 @@ import 'package:educaton_codial/pages/student/rating_page.dart';
 import 'package:educaton_codial/pages/student/student_profile_page.dart';
 import 'package:educaton_codial/models/student_model.dart';
 import 'package:educaton_codial/pages/news_page.dart';
+import 'package:educaton_codial/widgets/notification_bell.dart';
 import 'package:educaton_codial/pages/baholash_nizomi_page.dart';
 import 'package:educaton_codial/utils/logout.dart';
 import 'package:educaton_codial/services/student_service.dart';
@@ -88,25 +89,11 @@ class _MainPageState extends State<MainPage> {
               fontWeight: FontWeight.w800),
         ),
         actions: [
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_outlined,
-                    color: Color(0xFF374151), size: 24),
-              ),
-              Positioned(
-                top: 10, right: 10,
-                child: Container(
-                  width: 8, height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                ),
-              ),
-            ],
+          NotificationBell(
+            onOpenNews: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NewsPage()),
+            ),
           ),
           const SizedBox(width: 4),
         ],

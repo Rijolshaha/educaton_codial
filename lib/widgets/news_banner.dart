@@ -56,7 +56,9 @@ class NewsBanner extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    "${news.unreadCount} ta o'qilmagan yangilik mavjud",
+                    news.unreadCount > 0
+                        ? "${news.unreadCount} ta yangilik mavjud"
+                        : "Yangiliklar bo'limiga o'ting",
                     style: const TextStyle(fontSize: 12, color: Colors.white70),
                   ),
                 ],

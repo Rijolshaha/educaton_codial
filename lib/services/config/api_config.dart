@@ -4,7 +4,7 @@
 
 class ApiConfig {
   // 🔧 Real backend manzili:
-  static const String BASE_URL = 'https://api.codialinfo.uz';
+  static const String BASE_URL = 'https://codialcoin.pythonanywhere.com';
 
   // 🧪 `true` bo'lsa — backendsiz mock ma'lumot ishlatiladi.
   //    Owner roli real API'ga ulandi → `false`.

@@ -16,27 +16,138 @@ class RatingPage extends StatefulWidget {
 
 class _RatingPageState extends State<RatingPage> {
   final _service = StudentService();
+  final _scrollController = ScrollController();
+
+  static const _studentPage = StudentService.ratingStudentPageSize;
+  static const _groupPage = StudentService.ratingGroupPageSize;
+
   String _tab = 'oquvchilar';
   String _period = 'haftalik';
-  bool _loading = true;
-  List<StudentModel> _students = const [];
-  List<GroupModel> _groups = const [];
+
+  List<StudentModel> _allStudents = const [];
+  List<GroupModel> _allGroups = const [];
+  int _studentVisible = 0;
+  int _groupVisible = 0;
+
+  bool _loadingStudents = true;
+  bool _loadingGroups = false;
+  bool _groupsLoaded = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _scrollController.addListener(_onScroll);
+    _loadStudents();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final data = await _service.fetchRating(period: _period);
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels < pos.maxScrollExtent - 240) return;
+    _loadMore();
+  }
+
+  void _loadMore() {
+    if (_tab == 'oquvchilar') {
+      if (_loadingStudents || _studentVisible >= _allStudents.length) return;
+      setState(() {
+        _studentVisible = (_studentVisible + _studentPage)
+            .clamp(0, _allStudents.length);
+      });
+    } else {
+      if (_loadingGroups || !_groupsLoaded) return;
+      if (_groupVisible >= _allGroups.length) return;
+      setState(() {
+        _groupVisible =
+            (_groupVisible + _groupPage).clamp(0, _allGroups.length);
+      });
+    }
+  }
+
+  Future<void> _loadStudents({bool refresh = false}) async {
+    setState(() {
+      _loadingStudents = true;
+      _error = null;
+      if (refresh) {
+        _allStudents = const [];
+        _studentVisible = 0;
+        _groupsLoaded = false;
+        _allGroups = const [];
+        _groupVisible = 0;
+      }
+    });
+
+    try {
+      final list =
+          await _service.loadRatingStudents(_period, refresh: refresh);
+      if (!mounted) return;
+      setState(() {
+        _allStudents = list;
+        _studentVisible = list.length.clamp(0, _studentPage);
+        _loadingStudents = false;
+      });
+      _prefetchGroups();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingStudents = false;
+        _error = 'Ma\'lumot yuklanmadi';
+      });
+    }
+  }
+
+  Future<void> _prefetchGroups() async {
+    if (_groupsLoaded) return;
+    final list = await _service.loadRatingGroups(_period);
     if (!mounted) return;
     setState(() {
-      _students = data.students;
-      _groups = data.groups;
-      _loading = false;
+      _allGroups = list;
+      _groupVisible = list.length.clamp(0, _groupPage);
+      _groupsLoaded = true;
     });
+  }
+
+  Future<void> _loadGroups() async {
+    if (_groupsLoaded) return;
+    setState(() => _loadingGroups = true);
+    try {
+      final list = await _service.loadRatingGroups(_period);
+      if (!mounted) return;
+      setState(() {
+        _allGroups = list;
+        _groupVisible = list.length.clamp(0, _groupPage);
+        _groupsLoaded = true;
+        _loadingGroups = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingGroups = false);
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    _service.clearRatingCache();
+    await _loadStudents(refresh: true);
+    if (_tab == 'guruhlar') await _loadGroups();
+  }
+
+  void _changePeriod(String key) {
+    if (_period == key) return;
+    setState(() {
+      _period = key;
+      _groupsLoaded = false;
+      _allGroups = const [];
+      _groupVisible = 0;
+    });
+    _service.clearRatingCache();
+    _loadStudents(refresh: true);
   }
 
   void _openProfile(BuildContext context, StudentModel student) {
@@ -48,26 +159,28 @@ class _RatingPageState extends State<RatingPage> {
     );
   }
 
+  List<StudentModel> get _visibleStudents =>
+      _allStudents.take(_studentVisible).toList();
+
+  List<GroupModel> get _visibleGroups =>
+      _allGroups.take(_groupVisible).toList();
+
+  bool get _hasMoreStudents => _studentVisible < _allStudents.length;
+  bool get _hasMoreGroups => _groupVisible < _allGroups.length;
+
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return Scaffold(
-        backgroundColor: AppColors.bg,
-        body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      );
-    }
-
-    final students = _students;
-    final groups = _groups;
+    final students = _visibleStudents;
+    final groups = _visibleGroups;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: _onRefresh,
+          color: AppColors.primary,
           child: CustomScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
@@ -126,17 +239,37 @@ class _RatingPageState extends State<RatingPage> {
                 ),
               ),
               if (_tab == 'oquvchilar') ...[
-                if (students.length >= 3)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _Podium(
-                        students: students.take(3).toList(),
-                        onTap: (s) => _openProfile(context, s),
+                if (_loadingStudents && _allStudents.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 48),
+                        child: CircularProgressIndicator(
+                            color: AppColors.primary),
                       ),
                     ),
-                  ),
-                if (students.isEmpty)
+                  )
+                else if (_error != null && _allStudents.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_error!,
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary)),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () => _loadStudents(refresh: true),
+                            child: const Text('Qayta urinish'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (_allStudents.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
@@ -144,7 +277,17 @@ class _RatingPageState extends State<RatingPage> {
                           style: TextStyle(color: AppColors.textSecondary)),
                     ),
                   )
-                else
+                else ...[
+                  if (students.length >= 3)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _Podium(
+                          students: students.take(3).toList(),
+                          onTap: (s) => _openProfile(context, s),
+                        ),
+                      ),
+                    ),
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     sliver: SliverList(
@@ -160,8 +303,36 @@ class _RatingPageState extends State<RatingPage> {
                       ),
                     ),
                   ),
+                  if (_hasMoreStudents)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary.withOpacity(0.6),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ] else ...[
-                if (groups.isEmpty)
+                if (_loadingGroups && !_groupsLoaded)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 48),
+                        child: CircularProgressIndicator(
+                            color: AppColors.primary),
+                      ),
+                    ),
+                  )
+                else if (groups.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
@@ -179,6 +350,22 @@ class _RatingPageState extends State<RatingPage> {
                       ),
                     ),
                   ),
+                if (_hasMoreGroups)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary.withOpacity(0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -192,7 +379,11 @@ class _RatingPageState extends State<RatingPage> {
     final active = _tab == key;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _tab = key),
+        onTap: () {
+          if (_tab == key) return;
+          setState(() => _tab = key);
+          if (key == 'guruhlar' && !_groupsLoaded) _loadGroups();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -216,11 +407,7 @@ class _RatingPageState extends State<RatingPage> {
   Widget _periodItem(String key, String label) {
     final active = _period == key;
     return GestureDetector(
-      onTap: () {
-        if (_period == key) return;
-        setState(() => _period = key);
-        _load();
-      },
+      onTap: () => _changePeriod(key),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),

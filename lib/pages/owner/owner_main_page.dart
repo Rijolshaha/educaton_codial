@@ -14,6 +14,7 @@ import '../../../pages/admin/admin_kurslar_page.dart';
 import '../../../pages/admin/admin_ustozlar_page.dart';
 import '../../../pages/admin/admin_oquvchilar_page.dart';
 import '../../../pages/news_page.dart';
+import '../../../widgets/notification_bell.dart';
 
 // ── Other shared ──
 import '../../../utils/logout.dart';
@@ -101,7 +102,10 @@ class _OwnerMainPageState extends State<OwnerMainPage> {
               fontSize: 18,
               fontWeight: FontWeight.w800),
         ),
-        actions: [_NotifIcon(), const SizedBox(width: 4)],
+        actions: [
+          NotificationBell(onOpenNews: () => _navigateTo(1)),
+          const SizedBox(width: 4),
+        ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: Color(0xFFF3F4F6)),
@@ -132,9 +136,9 @@ class _OwnerMainPageState extends State<OwnerMainPage> {
             activeIcon: Icon(Icons.dashboard_rounded),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
-            icon: _badgeIcon(Icons.newspaper_outlined),
-            activeIcon: _badgeIcon(Icons.newspaper_rounded),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.newspaper_outlined),
+            activeIcon: Icon(Icons.newspaper_rounded),
             label: 'Yangliklar',
           ),
           const BottomNavigationBarItem(
@@ -152,53 +156,6 @@ class _OwnerMainPageState extends State<OwnerMainPage> {
     );
   }
 
-  static Widget _badgeIcon(IconData icon) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      Icon(icon),
-      Positioned(
-        top: -4, right: -6,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-              color: AppColors.red,
-              borderRadius: BorderRadius.circular(10)),
-          child: const Text('6',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800)),
-        ),
-      ),
-    ],
-  );
-}
-
-// ─── Notification Icon ────────────────────────────────────────────────────────
-
-class _NotifIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Stack(children: [
-      IconButton(
-        onPressed: () {},
-        icon: const Icon(Icons.notifications_outlined,
-            color: Color(0xFF374151), size: 24),
-      ),
-      Positioned(
-        top: 10, right: 10,
-        child: Container(
-          width: 8, height: 8,
-          decoration: BoxDecoration(
-            color: AppColors.red,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 1.5),
-          ),
-        ),
-      ),
-    ]);
-  }
 }
 
 // ─── Desktop Sidebar ──────────────────────────────────────────────────────────
@@ -292,7 +249,6 @@ class _OwnerSidebar extends StatelessWidget {
                   icon: Icons.newspaper_outlined,
                   activeIcon: Icons.newspaper_rounded,
                   label: 'Yangliklar',
-                  badge: 6,
                   isActive: currentIndex == 1,
                   onTap: () => onNavigate(1),
                 ),
@@ -578,7 +534,6 @@ class _OwnerDrawerMobile extends StatelessWidget {
                 icon: Icons.newspaper_outlined,
                 activeIcon: Icons.newspaper_rounded,
                 label: 'Yangliklar',
-                badge: 6,
                 isActive: currentIndex == 1,
                 onTap: () {
                   Navigator.pop(context);

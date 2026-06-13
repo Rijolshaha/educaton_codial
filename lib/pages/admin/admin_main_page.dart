@@ -7,6 +7,7 @@ import '../../../pages/admin/admin_kurslar_page.dart';
 import '../../../pages/admin/admin_ustozlar_page.dart';
 import '../../../pages/admin/admin_oquvchilar_page.dart';
 import '../../../pages/news_page.dart';
+import '../../../widgets/notification_bell.dart';
 import '../../../pages/baholash_nizomi_page.dart';
 import '../../../utils/logout.dart';
 import 'admin_auction_page.dart';
@@ -116,27 +117,7 @@ class _AdminMainPageState extends State<AdminMainPage> {
               fontWeight: FontWeight.w800),
         ),
         actions: [
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_outlined,
-                    color: Color(0xFF374151), size: 24),
-              ),
-              Positioned(
-                top: 10, right: 10,
-                child: Container(
-                  width: 8, height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.red,
-                    shape: BoxShape.circle,
-                    border:
-                    Border.all(color: Colors.white, width: 1.5),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          NotificationBell(onOpenNews: () => _navigateTo(1)),
           const SizedBox(width: 4),
         ],
         bottom: const PreferredSize(

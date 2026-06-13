@@ -53,7 +53,7 @@ class DashboardModel {
       ),
       coins: CoinInfo(total: 3250, coinsForNextLevel: 1550),
       rank: RankInfo(position: 1, isUp: true),
-      news: NewsInfo(unreadCount: 5),
+      news: NewsInfo(unreadCount: 0),
       stats: StatsInfo(lessons: 12, books: 8, activityPercent: 94, groups: 1),
       coinOpportunities: [
         CoinOpportunity(

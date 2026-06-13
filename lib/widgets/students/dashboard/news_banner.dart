@@ -4,7 +4,7 @@ import '../../../../models/dashboard_model.dart';
 
 class NewsBanner extends StatelessWidget {
   final NewsInfo news;
-  const NewsBanner({super.key, required this.news, required void Function() onTap});
+  const NewsBanner({super.key, required this.news});
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +52,9 @@ class NewsBanner extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  "${news.unreadCount} ta o'qilmagan yangilik mavjud",
+                  news.unreadCount > 0
+                      ? "${news.unreadCount} ta yangi bildirishnoma"
+                      : "Yangi bildirishnomalar yo'q",
                   style: const TextStyle(fontSize: 12, color: Colors.white),
                 ),
               ],

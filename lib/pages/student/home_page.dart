@@ -12,7 +12,7 @@ import '../../widgets/students/dashboard/news_banner.dart';
 import '../../widgets/students/dashboard/quick_actions.dart';
 import '../../widgets/students/dashboard/rank_card.dart';
 import '../../widgets/students/dashboard/stats_grid.dart';
-import '../news_page.dart';
+import '../notifications_page.dart';
 import 'student_profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -40,10 +40,10 @@ class _HomePageState extends State<HomePage> {
     setState(() => _dashboardFuture = _service.fetchDashboard());
   }
 
-  void _openNews() {
+  void _openNotifications() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const NewsPage()),
+      MaterialPageRoute(builder: (_) => const NotificationsPage()),
     );
   }
 
@@ -117,11 +117,8 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: 20),
                         GestureDetector(
-                          onTap: _openNews,
-                          child: NewsBanner(
-                            news: data.news,
-                            onTap: () {},
-                          ),
+                          onTap: _openNotifications,
+                          child: NewsBanner(news: data.news),
                         ),
                         const SizedBox(height: 20),
                         StatsGrid(stats: data.stats),

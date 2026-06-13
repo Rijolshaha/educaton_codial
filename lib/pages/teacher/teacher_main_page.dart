@@ -5,6 +5,7 @@ import '../../../pages/teacher/teacher_dashboard_page.dart';
 import '../../../pages/teacher/teacher_baholash_page.dart';
 import '../../../pages/teacher/teacher_guruhlarim_page.dart';
 import '../../../pages/news_page.dart';
+import '../../../widgets/notification_bell.dart';
 import '../../../pages/student/rating_page.dart';
 import '../../../pages/student/auksion_page.dart';
 import '../../../pages/baholash_nizomi_page.dart';
@@ -78,7 +79,10 @@ class _TeacherShell extends StatelessWidget {
     final pages = [
       const TeacherDashboardPage(),
       const NewsPage(),
-      TeacherBaholashPage(teacher: teacher),
+      TeacherBaholashPage(
+        teacher: teacher,
+        isActive: currentIndex == 2,
+      ),
       const RatingPage(),
     ];
 
@@ -104,10 +108,8 @@ class _TeacherShell extends StatelessWidget {
               fontWeight: FontWeight.w800),
         ),
         actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_outlined,
-                color: Color(0xFF374151), size: 24),
+          NotificationBell(
+            onOpenNews: () => onNavigate(1),
           ),
           const SizedBox(width: 4),
         ],
